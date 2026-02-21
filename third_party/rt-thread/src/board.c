@@ -96,25 +96,7 @@ INIT_BOARD_EXPORT(uart_init);
 
 void rt_hw_console_output(const char *str)
 {
-    int i = 0, size = 0;
-    char a = '\r';
-
-    size = rt_strlen(str);
-    extern void tt(char *str, int size);
-
-    tt(str, size);
-    // for (i = 0; i < size; i++)
-    // {
-    //     if (*(str + i) == '\n')
-    //     {
-    //         LL_USART_TransmitData8(USART1, a);
-    //         while (!LL_USART_IsActiveFlag_TXE(USART3))
-    //             ;
-    //     }
-    //     LL_USART_TransmitData8(USART1, *(str + i));
-    //     while (!LL_USART_IsActiveFlag_TXE(USART3))
-    //         ;
-    // }
+  
 }
 
 #endif
