@@ -4,3 +4,5 @@ obj-y += framework_interrupts.o
 obj-y += framework_rtos.o
 obj-y += framework_debug.o
 obj-y += syscalls.o
+
+EXTRA_CFLAGS += -Iframework/include

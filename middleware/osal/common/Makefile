@@ -8,4 +8,5 @@ obj-y += osal_task.o
 obj-y += osal_timer.o
 obj-y += osal_system.o
 
-EXTRA_CFLAGS += -Iosal/rtthread
+EXTRA_CFLAGS += -Imiddleware/osal/rtthread
+EXTRA_CFLAGS += -Iframework/config

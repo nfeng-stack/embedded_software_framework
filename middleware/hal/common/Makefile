@@ -4,4 +4,5 @@ obj-y += hal_timer.o
 obj-y += hal_uart.o
 obj-y += hal_system.o
 
-EXTRA_CFLAGS += -Ihal/stm32h5
+EXTRA_CFLAGS += -Imiddleware/hal/stm32h5
+EXTRA_CFLAGS += -Iframework/config

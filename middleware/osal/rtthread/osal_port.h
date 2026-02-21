@@ -15,7 +15,7 @@ extern "C"
 #endif
 
 /* Include OSAL public interface for type definitions */
-#include "../../include/osal.h"
+#include "../../../include/osal.h"
 
 /* Ensure RT-Thread features are enabled */
 #define RT_USING_EVENT
@@ -25,8 +25,8 @@ extern "C"
 #define RT_USING_TIMER
 
 /* Include RT-Thread headers from third_party directory */
-#include "../../third_party/rt-thread/include/rtthread.h"
-#include "../../third_party/rt-thread/include/rthw.h"
+#include "../../../third_party/rt-thread/include/rtthread.h"
+#include "../../../third_party/rt-thread/include/rthw.h"
 
 /*------------------------------------------------------------------------------
  * Type Mappings

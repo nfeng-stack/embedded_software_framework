@@ -30,8 +30,7 @@ MAP_FILE = $(BUILD_DIR)/$(PROJECT_NAME).map
 
 # Top-level directories to recurse into
 libs-y += third_party
-libs-y += hal
-libs-y += osal
+libs-y += middleware
 libs-y += framework
 libs-y += app
 

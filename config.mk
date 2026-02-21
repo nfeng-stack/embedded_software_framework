@@ -45,9 +45,7 @@ C_DEFS = \
 # C includes (basic - will be extended in main Makefile)
 C_INCLUDES = \
 	-Iinclude \
-	-Iframework/config \
-	-Iframework/include \
-	-Ihal/include
+
 
 # ASM defines
 AS_DEFS =
@@ -109,7 +107,8 @@ LDFLAGS += \
 	-Wl,--print-memory-usage \
 	-Wl,-Map=$(BUILD_DIR)/$(PROJECT_NAME).map \
 	-Wl,-u,_printf_float \
-	-Wl,-u,_scanf_float
+	-Wl,-u,_scanf_float \
+	-Wl,--no-warn-rwx-segments
 
 #===============================================================================
 # Platform-Specific Configuration
