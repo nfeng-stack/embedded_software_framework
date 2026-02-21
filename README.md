@@ -13,47 +13,53 @@
 
 ```
 your_framework/
-├── include/                          # 对外公开接口
-│   ├── hal.h                         # HAL层通用接口
-│   └── osal.h                        # OSAL层通用接口
-├── hal/                              # 硬件抽象层实现
-│   ├── common/                       # HAL通用代码
-│   │   ├── hal_gpio.c                # GPIO抽象实现
-│   │   ├── hal_uart.c                # UART抽象实现
-│   │   ├── hal_timer.c               # 定时器抽象实现
-│   │   └── hal_common.h              # 通用内部头文件
-│   └── stm32h5/                      # STM32H5平台具体实现
-│       ├── hal_gpio_ll.c             # GPIO底层实现
-│       ├── hal_uart_ll.c             # UART底层实现
-│       ├── hal_timer_ll.c            # 定时器底层实现
-│       └── hal_platform.h            # 平台私有定义
-├── osal/                             # 操作系统抽象层实现
-│   ├── common/                       # OSAL通用代码
-│   │   ├── osal_task.c               # 任务管理抽象实现
-│   │   ├── osal_queue.c              # 队列抽象实现
-│   │   ├── osal_common.h             # 通用内部头文件
-│   │   └── (其他OSAL实现文件)
-│   └── rtthread/                     # RT-Thread适配
-│       ├── osal_task_ll.c            # 任务底层实现
-│       ├── osal_port.h               # RT-Thread类型映射
-│       └── (其他OSAL底层实现文件)
-├── app/                              # 应用层
-│   └── your_app.c                    # 应用主文件
-├── config/                           # 配置文件
-│   ├── hal_config.h                  # HAL层配置
-│   ├── osal_config.h                 # OSAL层配置
-│   └── platform_select.h             # 选择目标平台和RTOS
-├── third_party/                      # 第三方代码
-│   ├── stm32h5xx_hal_driver/         # STM32H5 HAL库（需用户复制）
-│   └── rt-thread/                    # RT-Thread源码（需用户复制）
-├── linker/                           # 链接脚本
-│   └── stm32h5xx.ld                  # STM32H5链接脚本
-├── scripts/                          # 构建系统脚本
-│   ├── Makefile.build                # 递归构建核心脚本
-│   └── Makefile.lib                  # 构建通用定义
-├── Makefile                          # 顶层Makefile
-├── config.mk                         # 全局编译配置
-└── README.md                         # 本文件
+├── middleware/                          # 中间件层
+│   ├── hal/                            # 硬件抽象层实现
+│   │   ├── common/                     # HAL通用代码
+│   │   │   ├── hal_gpio.c              # GPIO抽象实现
+│   │   │   ├── hal_uart.c              # UART抽象实现
+│   │   │   ├── hal_timer.c             # 定时器抽象实现
+│   │   │   └── hal_common.h            # 通用内部头文件
+│   │   └── stm32h5/                    # STM32H5平台具体实现
+│   │       ├── hal_gpio_ll.c           # GPIO底层实现
+│   │       ├── hal_uart_ll.c           # UART底层实现
+│   │       ├── hal_timer_ll.c          # 定时器底层实现
+│   │       └── hal_platform.h          # 平台私有定义
+│   └── osal/                           # 操作系统抽象层实现
+│       ├── common/                     # OSAL通用代码
+│       │   ├── osal_task.c             # 任务管理抽象实现
+│       │   ├── osal_queue.c            # 队列抽象实现
+│       │   ├── osal_common.h           # 通用内部头文件
+│       │   └── (其他OSAL实现文件)
+│       └── rtthread/                   # RT-Thread适配
+│           ├── osal_task_ll.c          # 任务底层实现
+│           ├── osal_port.h             # RT-Thread类型映射
+│           └── (其他OSAL底层实现文件)
+├── framework/                          # 框架层
+│   ├── config/                         # 配置文件
+│   │   ├── hal_config.h                # HAL层配置
+│   │   ├── osal_config.h               # OSAL层配置
+│   │   └── platform_select.h           # 选择目标平台和RTOS
+│   ├── linker/                         # 链接脚本
+│   │   └── stm32h5xx.ld                # STM32H5链接脚本
+│   ├── include/                        # 框架内部头文件
+│   ├── src/                            # 框架源文件
+│   ├── startup/                        # 启动文件
+│   └── ports/                          # 端口适配
+├── include/                            # 对外公开接口
+│   ├── hal.h                           # HAL层通用接口
+│   └── osal.h                          # OSAL层通用接口
+├── app/                                # 应用层
+│   └── your_app.c                      # 应用主文件
+├── third_party/                        # 第三方代码
+│   ├── stm32h5xx_hal_driver/           # STM32H5 HAL库（需用户复制）
+│   └── rt-thread/                      # RT-Thread源码（需用户复制）
+├── scripts/                            # 构建系统脚本
+│   ├── Makefile.build                  # 递归构建核心脚本
+│   └── Makefile.lib                    # 构建通用定义
+├── Makefile                            # 顶层Makefile
+├── config.mk                           # 全局编译配置
+└── README.md                           # 本文件
 ```
 
 ## 构建系统详细指南
@@ -80,18 +86,18 @@ your_framework/
 
 1. **在对应目录的Makefile中添加源文件**：
    ```makefile
-   # 例如：在 hal/common/Makefile 中添加
+    # 例如：在 middleware/hal/common/Makefile 中添加
    obj-y += hal_spi.o      # 添加SPI驱动
    obj-y += hal_i2c.o      # 添加I2C驱动
    ```
 
 2. **确保对应的.c文件存在于同一目录**：
-   ```
-   hal/common/
-   ├── hal_spi.c
-   ├── hal_i2c.c
-   └── Makefile
-   ```
+    ```
+    middleware/hal/common/
+    ├── hal_spi.c
+    ├── hal_i2c.c
+    └── Makefile
+    ```
 
 3. **添加头文件路径**（如果需要）：
    ```makefile
@@ -109,20 +115,20 @@ your_framework/
    ```
 
 2. **模块内部头文件**：放在对应模块目录
-   ```
-   hal/common/
-   ├── hal_common.h
-   ├── hal_internal.h    # 新增内部头文件
-   └── Makefile
-   ```
+    ```
+    middleware/hal/common/
+    ├── hal_common.h
+    ├── hal_internal.h    # 新增内部头文件
+    └── Makefile
+    ```
 
 3. **平台特定头文件**：放在对应平台目录
-   ```
-   hal/stm32h5/
-   ├── hal_platform.h
-   ├── hal_stm32h5_reg.h # 新增寄存器定义
-   └── Makefile
-   ```
+    ```
+    middleware/hal/stm32h5/
+    ├── hal_platform.h
+    ├── hal_stm32h5_reg.h # 新增寄存器定义
+    └── Makefile
+    ```
 
 ### 添加库文件
 
@@ -204,19 +210,19 @@ EXTRA_CFLAGS += -I$(srctree)/module/include
 
 #### 示例：平台特定模块
 ```makefile
-# hal/stm32h5/Makefile
+# middleware/hal/stm32h5/Makefile
 obj-y += platform_gpio_driver.o
 obj-y += platform_timer_driver.o
 obj-y += platform_uart_driver.o
 obj-y += platform_system_driver.o
 
 # 添加平台特定头文件路径
-EXTRA_CFLAGS += -Ihal/stm32h5
+EXTRA_CFLAGS += -Imiddleware/hal/stm32h5
 ```
 
 #### 示例：RTOS适配模块
 ```makefile
-# osal/rtthread/Makefile
+# middleware/osal/rtthread/Makefile
 obj-y += osal_task_ll.o
 obj-y += osal_queue_ll.o
 obj-y += osal_sem_ll.o
@@ -245,19 +251,19 @@ obj-y += osal_system_ll.o
 ### 扩展构建系统场景示例
 
 #### 场景1：添加新的硬件平台
-1. 创建平台目录：`hal/new_platform/`
-2. 添加Makefile：`hal/new_platform/Makefile`
+1. 创建平台目录：`middleware/hal/new_platform/`
+2. 添加Makefile：`middleware/hal/new_platform/Makefile`
 3. 实现底层驱动文件：`platform_*_driver.c`
 4. 更新`config.mk`中的平台支持
 
 #### 场景2：添加新的RTOS适配
-1. 创建RTOS目录：`osal/new_rtos/`
-2. 添加Makefile：`osal/new_rtos/Makefile`
+1. 创建RTOS目录：`middleware/osal/new_rtos/`
+2. 添加Makefile：`middleware/osal/new_rtos/Makefile`
 3. 实现底层适配文件：`osal_*_ll.c`
 4. 更新`config.mk`中的RTOS选择逻辑
 
 #### 场景3：添加外设驱动
-1. 在`hal/common/`添加抽象实现：`hal_peripheral.c`
+1. 在`middleware/hal/common/`添加抽象实现：`hal_peripheral.c`
 2. 在各平台目录添加底层实现：`platform_peripheral_driver.c`
 3. 在`include/hal.h`中添加API声明
 4. 在对应Makefile中添加源文件引用
@@ -494,12 +500,12 @@ void framework_data_init(void) {
 构建系统根据 `OSAL_RTOS` 配置变量自动选择合适的链接脚本和启动文件：
 
 #### 链接脚本选择
-- 当 `OSAL_RTOS = rtthread` 时：使用 `linker/rtthread.ld`
-- 其他情况：使用平台特定的链接脚本（如 `linker/stm32h5xx.ld`）
+- 当 `OSAL_RTOS = rtthread` 时：使用 `framework/linker/rtthread.ld`
+- 其他情况：使用平台特定的链接脚本（如 `framework/linker/stm32h5xx.ld`）
 
 #### 启动文件选择
-- 当 `OSAL_RTOS = rtthread` 时：使用 `startup/startup_rtthread.S`
-- 其他情况：使用 `startup/startup_generic.S`
+- 当 `OSAL_RTOS = rtthread` 时：使用 `framework/startup/startup_rtthread.S`
+- 其他情况：使用 `framework/startup/startup_generic.S`
 
 #### 查看当前配置
 ```bash
@@ -523,7 +529,7 @@ cp -r /Users/nfeng/nanfeng/Project/rtthread-nano/rt-thread third_party/rt-thread
 
 ### 2. 配置目标平台和RTOS
 
-编辑 `config/platform_select.h`，确保正确选择平台和RTOS：
+编辑 `framework/config/platform_select.h`，确保正确选择平台和RTOS：
 
 ```c
 #define HAL_PLATFORM_STM32H5      1
@@ -532,7 +538,7 @@ cp -r /Users/nfeng/nanfeng/Project/rtthread-nano/rt-thread third_party/rt-thread
 
 ### 3. 配置硬件参数
 
-编辑 `config/hal_config.h` 配置时钟频率、外设使能等：
+编辑 `framework/config/hal_config.h` 配置时钟频率、外设使能等：
 
 ```c
 #define HSE_VALUE               8000000UL   /* 8MHz外部晶振 */
@@ -544,7 +550,7 @@ cp -r /Users/nfeng/nanfeng/Project/rtthread-nano/rt-thread third_party/rt-thread
 
 ### 4. 配置RTOS参数
 
-编辑 `config/osal_config.h` 配置任务栈大小、时钟频率等：
+编辑 `framework/config/osal_config.h` 配置任务栈大小、时钟频率等：
 
 ```c
 #define OSAL_TASK_DEFAULT_STACK_SIZE   512
@@ -610,8 +616,8 @@ make clean
 
 ### 可移植性设计
 
-- **更换硬件平台**：添加新的 `hal/<platform>` 目录，实现底层函数
-- **更换RTOS**：添加新的 `osal/<rtos>` 目录，实现底层函数
+- **更换硬件平台**：添加新的 `middleware/hal/<platform>` 目录，实现底层函数
+- **更换RTOS**：添加新的 `middleware/osal/<rtos>` 目录，实现底层函数
 - **应用代码无需修改**：API保持一致
 
 ### 完整接口支持
@@ -638,22 +644,22 @@ make clean
 
 ### 添加新的硬件平台
 
-1. 在 `hal/` 下创建新平台目录（如 `hal/stm32f4/`）
+1. 在 `middleware/hal/` 下创建新平台目录（如 `middleware/hal/stm32f4/`）
 2. 创建 `hal_platform.h` 定义平台特定类型和函数声明
 3. 实现底层函数（`hal_gpio_ll.c`、`hal_uart_ll.c`、`hal_timer_ll.c`）
-4. 在 `config/platform_select.h` 中添加平台选项
+4. 在 `framework/config/platform_select.h` 中添加平台选项
 
 ### 添加新的RTOS
 
-1. 在 `osal/` 下创建新RTOS目录（如 `osal/freertos/`）
+1. 在 `middleware/osal/` 下创建新RTOS目录（如 `middleware/osal/freertos/`）
 2. 创建 `osal_port.h` 定义类型映射和函数声明
 3. 实现底层函数（`osal_task_ll.c`、`osal_queue_ll.c` 等）
-4. 在 `config/platform_select.h` 中添加RTOS选项
+4. 在 `framework/config/platform_select.h` 中添加RTOS选项
 
 ### 添加新的外设驱动
 
 1. 在 `include/hal.h` 中添加新外设的API声明
-2. 在 `hal/common/` 中添加抽象实现
+2. 在 `middleware/hal/common/` 中添加抽象实现
 3. 在各平台目录中添加底层实现
 
 ## 构建系统命令参考
@@ -756,7 +762,7 @@ make clean
 
 ### 使用建议
 1. 首先复制第三方库到 `third_party/` 目录
-2. 根据实际硬件调整 `config/hal_config.h` 中的参数
+2. 根据实际硬件调整 `framework/config/hal_config.h` 中的参数
 3. 逐步完善底层实现，先实现GPIO和UART基础功能
 4. 使用示例应用进行验证和测试
 
