@@ -1,0 +1,48 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.autocomplete": "default",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**"
+    ],
+    "files.associations": {
+        "*.h": "c",
+        "framework_config.h": "c",
+        "hal_config.h": "c",
+        "platform_select.h": "c",
+        "*.s": "assembly",
+        "*.ld": "linker-script"
+    },
+    "editor.formatOnSave": true,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "build/**": false,
+        "**/*.o": true,
+        "**/*.d": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/bower_components": true,
+        "**/*.code-search": true,
+        "build/**": true
+    },
+    "cmake.configureOnOpen": false,
+    "terminal.integrated.defaultProfile.osx": "bash",
+    "terminal.integrated.profiles.osx": {
+        "bash": {
+            "path": "bash",
+            "args": [
+                "-l"
+            ]
+        }
+    },
+    "cortex-debug.openocdPath": "/usr/local/openocd/openocd-stm32-full/bin/openocd",
+    "cortex-debug.armToolchainPath": "/usr/local/arm/arm-gnu-toolchain-14.3.rel1-darwin-arm64-arm-none-eabi/bin",
+    "cortex-debug.variableUseNaturalFormat": false
+}

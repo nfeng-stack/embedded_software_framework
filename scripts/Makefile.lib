@@ -1,0 +1,44 @@
+# ==========================================================================
+# Generic definitions
+# ==========================================================================
+
+# Concat the value of all the CONFIGs (result is 'y' or 'yy', etc. )
+got = $(foreach cfg,$(1),$($(cfg)))
+
+# expected value 'y for each one
+expect = $(foreach cfg,$(1),y)
+
+# ==========================================================================
+# Object file lists
+# ==========================================================================
+
+# obj-y: objects built into built-in.o
+obj-y :=
+
+# obj-m: objects built as loadable modules (not used)
+obj-m :=
+
+# Handle multi-part objects (directory)
+# If obj-y contains a directory, it will be expanded by Makefile.build
+
+# ==========================================================================
+# Useful macros
+# ==========================================================================
+
+# Escape single quote for use in echo statements
+escsq = $(subst $(squote),'\$(squote)',$1)
+
+squote := '
+space := $(empty) $(empty)
+comma := ,
+
+# ==========================================================================
+# Build flags
+# ==========================================================================
+
+# c_flags from Makefile.build
+c_flags = $(CFLAGS) $(EXTRA_CFLAGS) $(CFLAGS_$(basetarget).o) $(CFLAGS_$(obj))
+
+# Include directories
+INCLUDES = $(C_INCLUDES)
+
