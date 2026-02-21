@@ -9,3 +9,8 @@ void osal_register_callback(void (*callback)(void))
 {
     osal_register_callback_ll(callback);
 }
+
+uint32_t osal_get_system_tick(void)
+{
+    return _osal_get_system_tick();
+}
