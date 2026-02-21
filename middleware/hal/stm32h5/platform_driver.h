@@ -1,7 +1,10 @@
 #ifndef PLATFORM_DRIVER_H
 #define PLATFORM_DRIVER_H
 
-#include "platform_driver.h"
+
 
 void platform_uart1_init(void);
+void platform_iic_init(void); /* 所有的驱动函数应该具备参数，这里为了开发方便就省略了*/
+uint8_t platform_iic_read(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len);
+uint8_t platform_iic_write(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len);
 #endif
