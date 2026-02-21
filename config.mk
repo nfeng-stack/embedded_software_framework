@@ -66,7 +66,7 @@ endif
 # Startup file selection (unified C startup for all configurations)
 STARTUP_FILE = framework/startup/c/startup.c
 
-# Libraries
+# Libraries - Full Newlib C library (not nano version)
 LIBS = -lc -lm -lnosys -lgcc
 LIBDIR =
 
@@ -102,7 +102,7 @@ CXXFLAGS += \
 	-fno-exceptions \
 	-fno-rtti
 
-# Linker flags
+# Linker flags - Full C library with floating-point support
 LDFLAGS += \
 	-specs=nosys.specs \
 	-Wl,--gc-sections \

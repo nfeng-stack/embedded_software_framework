@@ -29,6 +29,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/times.h>
+#include <sys/types.h>
+#include <stddef.h>
 
 /* Variables */
 extern int __io_putchar(int ch) __attribute__((weak));
@@ -240,3 +242,82 @@ __strong_reference(_kill, kill);
 __strong_reference(_getpid, getpid);
 
 #endif //__PICOLIBC__
+
+/* C library heap management functions */
+
+/**
+ * @brief C library heap expansion function
+ * 
+ * This function provides heap memory to the C library (Newlib).
+ * It uses the memory region defined in linker script:
+ *   - start: 'end' symbol (after .bss)
+ *   - limit: '_heap_limit' symbol (after C library heap)
+ * 
+ * @param incr Number of bytes to expand heap
+ * @return Previous heap end address, or (caddr_t)-1 on error
+ */
+void *_sbrk(ptrdiff_t incr)
+{
+    extern char end;          /* Defined in linker script: start of heap */
+    extern char _heap_limit;  /* Defined in linker script: end of heap */
+    static char *heap_end = &end;
+    char *prev_heap_end;
+    
+    /* Check if heap expansion exceeds limit */
+    if (heap_end + incr > &_heap_limit) {
+        errno = ENOMEM;
+        return (void *)-1;
+    }
+    
+    /* Expand heap */
+    prev_heap_end = heap_end;
+    heap_end += incr;
+    return (void *)prev_heap_end;
+}
+
+/**
+ * @brief Reentrant version of _sbrk (required by Newlib)
+ * 
+ * This function is called by Newlib's reentrant memory functions.
+ * It simply forwards to _sbrk.
+ * 
+ * @param ptr Reentrancy pointer (unused)
+ * @param incr Number of bytes to expand heap
+ * @return Previous heap end address, or (caddr_t)-1 on error
+ */
+void *_sbrk_r(struct _reent *ptr, ptrdiff_t incr)
+{
+    (void)ptr;
+    return _sbrk(incr);
+}
+
+/*------------------------------------------------------------------------------
+ * Thread-safe memory allocation locks for Newlib (RT-Thread compatible)
+ *----------------------------------------------------------------------------*/
+
+#include "framework_port.h"  /* Framework port interface for critical sections */
+
+/**
+ * @brief Lock for malloc family functions (thread-safe)
+ * 
+ * This function is called by Newlib before modifying heap structures.
+ * Uses framework port critical section for protection.
+ * 
+ * @param reent Reentrancy pointer
+ */
+void __malloc_lock(struct _reent *reent)
+{
+    framework_port_enter_critical();  /* Enter critical section */
+}
+
+/**
+ * @brief Unlock for malloc family functions (thread-safe)
+ * 
+ * This function is called by Newlib after heap operations.
+ * 
+ * @param reent Reentrancy pointer
+ */
+void __malloc_unlock(struct _reent *reent)
+{
+    framework_port_exit_critical();   /* Exit critical section */
+}

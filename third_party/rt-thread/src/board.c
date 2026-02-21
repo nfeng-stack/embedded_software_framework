@@ -15,16 +15,27 @@
 /*
  * Please modify RT_HEAP_SIZE if you enable RT_USING_HEAP
  * the RT_HEAP_SIZE max value = (sram size - ZI size), 1024 means 1024 bytes
+ * For dual-heap architecture: RT-Thread heap is 576KB in dedicated section
  */
-#define RT_HEAP_SIZE (15 * 1024)
-static rt_uint8_t rt_heap[RT_HEAP_SIZE];
+#define RT_HEAP_SIZE (300 * 1024) /* 576KB = 0x90000 bytes */
 
-RT_WEAK void *rt_heap_begin_get(void)
+/* Place RT-Thread heap array in dedicated linker section */
+__attribute__((section(".rt_heap_section"), aligned(8))) static rt_uint8_t rt_heap[RT_HEAP_SIZE];
+
+static int rt_heap_debug_done = 0;
+
+void *rt_heap_begin_get(void)
 {
+    if (!rt_heap_debug_done)
+    {
+        rt_kprintf("[RT-Heap] start: 0x%p, end: 0x%p, size: %d KB\n",
+                   rt_heap, rt_heap + RT_HEAP_SIZE, RT_HEAP_SIZE / 1024);
+        rt_heap_debug_done = 1;
+    }
     return rt_heap;
 }
 
-RT_WEAK void *rt_heap_end_get(void)
+void *rt_heap_end_get(void)
 {
     return rt_heap + RT_HEAP_SIZE;
 }

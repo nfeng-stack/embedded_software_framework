@@ -32,8 +32,12 @@ MEMORY
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of RAM */
 
 /* Heap and stack sizes - can be overridden via compiler flags */
-_Min_Heap_Size  = DEFINED(_Min_Heap_Size)  ? _Min_Heap_Size  : 0x800;    /* 0KB default - using RT-Thread heap */
-_Min_Stack_Size = DEFINED(_Min_Stack_Size) ? _Min_Stack_Size : 0x800;    /* 0KB default - using main stack */
+_Min_Heap_Size  = DEFINED(_Min_Heap_Size)  ? _Min_Heap_Size  : 0x4000;   /* 16KB C library heap */
+_Min_Stack_Size = DEFINED(_Min_Stack_Size) ? _Min_Stack_Size : 0x1000;   /* 4KB C library stack (reserved) */
+
+/* RT-Thread heap size - User configurable via RT_HEAP_SIZE in board.c */
+/* Default: 576KB (640K - 64K) but actual size defined by RT_HEAP_SIZE = 300KB in board.c */
+_RT_Heap_Size   = DEFINED(_RT_Heap_Size)   ? _RT_Heap_Size   : (640K - 64K); /* 576KB RT-Thread heap (default) */
 
 
 
@@ -160,16 +164,39 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM
 
-  /* Minimal heap section to define required symbols for C library */
-  /* Heap size is zero since we use RT-Thread memory management */
+  /* C library heap and stack section */
+  /* Provides symbols required by C library: end, _end, _heap_limit */
   ._user_heap_stack (NOLOAD) :
   {
     . = ALIGN(8);
     PROVIDE ( end = . );
     PROVIDE ( _end = . );
-    . = . + _Min_Heap_Size;           /* Zero size */
+    . = . + _Min_Heap_Size;           /* 16KB C library heap */
     PROVIDE (_heap_limit = .);
-    . = . + _Min_Stack_Size;          /* Zero size */
+    . = . + 0x1000;                   /* 4KB isolation buffer */
+    PROVIDE (_rt_heap_boundary = .);  /* RT-Thread heap start boundary */
+    . = . + _Min_Stack_Size;          /* 4KB C library stack (reserved) */
+    . = ALIGN(8);
+  } >RAM
+
+  /* RT-Thread heap section for static array */
+  .rt_heap_section (NOLOAD) :
+  {
+    . = ALIGN(8);
+    _rt_heap_section_start = .;
+    *(.rt_heap_section)
+    *(.rt_heap_section*)
+    . = ALIGN(8);
+    _rt_heap_section_end = .;
+  } >RAM
+
+  /* MSP stack protection region (4KB at end of RAM) */
+  .msp_stack_protection (NOLOAD) :
+  {
+    . = ALIGN(8);
+    _msp_stack_protection_start = .;
+    . = . + 0x1000;                   /* 4KB protection region */
+    _msp_stack_protection_end = .;
     . = ALIGN(8);
   } >RAM
 

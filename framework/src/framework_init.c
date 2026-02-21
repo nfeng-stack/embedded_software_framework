@@ -17,6 +17,7 @@
 #include "framework_debug.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #ifdef HAL_PLATFORM_STM32H5
 #include "hal.h"
@@ -83,6 +84,17 @@ void framework_data_init(void)
     while (bss_start < bss_end)
     {
         *bss_start++ = 0;
+    }
+
+    /* Initialize MSP stack protection region with magic pattern */
+    extern uint32_t _msp_stack_protection_start;
+    extern uint32_t _msp_stack_protection_end;
+    uint32_t *prot_start = &_msp_stack_protection_start;
+    uint32_t *prot_end = &_msp_stack_protection_end;
+    
+    while (prot_start < prot_end)
+    {
+        *prot_start++ = 0xDEADBEEF;  /* Magic pattern for stack overflow detection */
     }
 }
 
