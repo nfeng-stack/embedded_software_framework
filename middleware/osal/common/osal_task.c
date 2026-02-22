@@ -1,133 +1,80 @@
-/**
- * @file    osal_task.c
- * @brief   Task management abstraction layer implementation
- * 
- * This file implements the task management functions defined in osal.h.
- * It calls RTOS-specific low-level functions through the _osal_task_* interface.
- */
+#include "osal_interface.h"
 
-#include "osal_common.h"
-
-/*------------------------------------------------------------------------------
- * Public Task Functions
- *----------------------------------------------------------------------------*/
-
-osal_task_t osal_task_create(const char* name, osal_task_func_t func, 
-                             void *arg, int stack_size, int priority)
+osal_err_t osal_task_init(osal_task_t thread,
+                          const char *name,
+                          void (*entry)(void *parameter),
+                          void *parameter,
+                          void *stack_start,
+                          osal_uint32_t stack_size,
+                          osal_uint8_t priority,
+                          osal_uint32_t tick)
 {
-    OSAL_CHECK_PARAM_RET_NULL(name != NULL);
-    OSAL_CHECK_PARAM_RET_NULL(func != NULL);
-    OSAL_CHECK_PARAM_RET_NULL(stack_size > 0);
-    OSAL_CHECK_PARAM_RET_NULL(priority >= OSAL_TASK_MIN_PRIORITY && 
-                              priority <= OSAL_TASK_MAX_PRIORITY);
-    
-    /* Call RTOS-specific implementation */
-    return _osal_task_create(name, func, arg, stack_size, priority);
+    return _osal_task_init(thread, name, entry, parameter,
+                          stack_start, stack_size, priority, tick);
 }
 
-void osal_task_delete(osal_task_t task)
+osal_err_t osal_task_detach(osal_task_t thread)
 {
-    OSAL_CHECK_PARAM(OSAL_TASK_IS_VALID(task));
-    
-    /* Call RTOS-specific implementation */
-    _osal_task_delete(task);
+    return _osal_task_detach(thread);
 }
 
-void osal_task_suspend(osal_task_t task)
+osal_task_t osal_task_create(const char *name,
+                              void (*entry)(void *parameter),
+                              void *parameter,
+                              osal_uint32_t stack_size,
+                              osal_uint8_t priority,
+                              osal_uint32_t tick)
 {
-    OSAL_CHECK_PARAM(OSAL_TASK_IS_VALID(task));
-    
-    /* Call RTOS-specific implementation */
-    _osal_task_suspend(task);
+    return _osal_task_create(name, entry, parameter,
+                            stack_size, priority, tick);
 }
 
-void osal_task_resume(osal_task_t task)
+osal_err_t osal_task_delete(osal_task_t thread)
 {
-    OSAL_CHECK_PARAM(OSAL_TASK_IS_VALID(task));
-    
-    /* Call RTOS-specific implementation */
-    _osal_task_resume(task);
+    return _osal_task_delete(thread);
 }
 
-int osal_task_get_priority(osal_task_t task)
+osal_task_t osal_task_self(void)
 {
-    OSAL_CHECK_PARAM_RET(OSAL_TASK_IS_VALID(task), OSAL_ERROR);
-    
-    /* Call RTOS-specific implementation */
-    return _osal_task_get_priority(task);
+    return _osal_task_self();
 }
 
-void osal_task_set_priority(osal_task_t task, int priority)
+osal_task_t osal_task_find(const char *name)
 {
-    OSAL_CHECK_PARAM(OSAL_TASK_IS_VALID(task));
-    OSAL_CHECK_PARAM(priority >= OSAL_TASK_MIN_PRIORITY && 
-                     priority <= OSAL_TASK_MAX_PRIORITY);
-    
-    /* Call RTOS-specific implementation */
-    _osal_task_set_priority(task, priority);
+    return _osal_task_find(name);
 }
 
-void osal_task_delay(uint32_t ms)
+osal_err_t osal_task_startup(osal_task_t thread)
 {
-    OSAL_CHECK_PARAM(ms > 0 || ms == OSAL_WAIT_FOREVER);
-    
-    /* Convert milliseconds to ticks */
-    uint32_t ticks = MS_TO_TICKS(ms);
-    if (ticks == 0 && ms > 0) {
-        ticks = 1; /* Ensure at least 1 tick delay */
-    }
-    
-    /* Call RTOS-specific implementation */
-    _osal_task_delay(ticks);
+    return _osal_task_startup(thread);
 }
 
-void osal_task_delay_until(uint32_t *last_wake_time, uint32_t ms)
+osal_err_t osal_task_yield(void)
 {
-    OSAL_CHECK_PARAM(last_wake_time != NULL);
-    OSAL_CHECK_PARAM(ms > 0);
-    
-    /* Calculate next wake time */
-    uint32_t next_wake_time = *last_wake_time + ms;
-    uint32_t current_time = osal_get_system_time();
-    
-    /* Handle time overflow */
-    if (current_time < *last_wake_time) {
-        *last_wake_time = current_time;
-        next_wake_time = current_time + ms;
-    }
-    
-    /* Check if we need to delay */
-    if (current_time < next_wake_time) {
-        uint32_t delay_ms = next_wake_time - current_time;
-        osal_task_delay(delay_ms);
-    } else {
-        /* We're already late, skip this period */
-        osal_task_delay(1); /* Minimum delay */
-    }
-    
-    /* Update last wake time */
-    *last_wake_time = next_wake_time;
+    return _osal_task_yield();
 }
 
-/*------------------------------------------------------------------------------
- * Extended Task Functions (optional)
- *----------------------------------------------------------------------------*/
-
-#ifdef OSAL_TASK_EXTENDED_API
-
-osal_result_t osal_task_get_info(osal_task_t task, osal_task_info_t *info)
+osal_err_t osal_task_delay(osal_tick_t tick)
 {
-    OSAL_CHECK_PARAM_RET(OSAL_TASK_IS_VALID(task), OSAL_INVALID_PARAM);
-    OSAL_CHECK_PARAM_RET(info != NULL, OSAL_INVALID_PARAM);
-    
-    /* RTOS-specific implementation would be needed */
-    return OSAL_NOT_SUPPORTED;
+    return _osal_task_delay(tick);
 }
 
-osal_result_t osal_task_yield(void)
+osal_err_t osal_task_mdelay(osal_int32_t ms)
 {
-    /* RTOS-specific implementation would be needed */
-    return OSAL_NOT_SUPPORTED;
+    return _osal_task_mdelay(ms);
 }
 
-#endif /* OSAL_TASK_EXTENDED_API */
+osal_err_t osal_task_suspend(osal_task_t thread)
+{
+    return _osal_task_suspend(thread);
+}
+
+osal_err_t osal_task_resume(osal_task_t thread)
+{
+    return _osal_task_resume(thread);
+}
+
+osal_err_t osal_task_control(osal_task_t thread, int cmd, void *arg)
+{
+    return _osal_task_control(thread, cmd, arg);
+}

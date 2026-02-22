@@ -1,4 +1,29 @@
-#include "osal_port.h"
+#include "osal_interface.h"
+
+osal_tick_t osal_tick_get(void)
+{
+    return _osal_tick_get();
+}
+
+osal_tick_t osal_tick_from_millisecond(osal_int32_t ms)
+{
+    return _osal_tick_from_millisecond(ms);
+}
+
+void osal_enter_critical(void)
+{
+    _osal_enter_critical();
+}
+
+void osal_exit_critical(void)
+{
+    _osal_exit_critical();
+}
+
+osal_base_t osal_critical_level(void)
+{
+    return _osal_critical_level();
+}
 
 void (*osal_system_get_systemtick_handler_callback(void))(void)
 {
@@ -10,7 +35,3 @@ void osal_register_callback(void (*callback)(void))
     osal_register_callback_ll(callback);
 }
 
-uint32_t osal_get_system_tick(void)
-{
-    return _osal_get_system_tick();
-}

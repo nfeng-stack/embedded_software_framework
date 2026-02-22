@@ -1,82 +1,43 @@
-/**
- * @file    osal_mutex.c
- * @brief   Mutex abstraction layer implementation
- * 
- * This file implements the mutex functions defined in osal.h.
- * It calls RTOS-specific low-level functions through the _osal_mutex_* interface.
- */
+#include "osal_interface.h"
 
-#include "osal_common.h"
-
-/*------------------------------------------------------------------------------
- * Public Mutex Functions
- *----------------------------------------------------------------------------*/
-
-osal_mutex_t osal_mutex_create(void)
+osal_err_t osal_mutex_init(osal_mutex_t mutex,
+                           const char *name,
+                           osal_uint8_t flag)
 {
-    /* Call RTOS-specific implementation */
-    return _osal_mutex_create();
+    return _osal_mutex_init(mutex, name, flag);
 }
 
-osal_result_t osal_mutex_delete(osal_mutex_t mutex)
+osal_err_t osal_mutex_detach(osal_mutex_t mutex)
 {
-    OSAL_CHECK_PARAM_RET(OSAL_MUTEX_IS_VALID(mutex), OSAL_INVALID_PARAM);
-    
-    /* Call RTOS-specific implementation */
+    return _osal_mutex_detach(mutex);
+}
+
+osal_mutex_t osal_mutex_create(const char *name, osal_uint8_t flag)
+{
+    return _osal_mutex_create(name, flag);
+}
+
+osal_err_t osal_mutex_delete(osal_mutex_t mutex)
+{
     return _osal_mutex_delete(mutex);
 }
 
-osal_result_t osal_mutex_lock(osal_mutex_t mutex, uint32_t timeout_ms)
+osal_err_t osal_mutex_take(osal_mutex_t mutex, osal_int32_t timeout)
 {
-    OSAL_CHECK_PARAM_RET(OSAL_MUTEX_IS_VALID(mutex), OSAL_INVALID_PARAM);
-    
-    /* Convert timeout to RTOS-specific format */
-    uint32_t timeout_ticks = (timeout_ms == OSAL_WAIT_FOREVER) ? 
-                             OSAL_WAIT_FOREVER : MS_TO_TICKS(timeout_ms);
-    
-    /* Call RTOS-specific implementation */
-    return _osal_mutex_lock(mutex, timeout_ticks);
+    return _osal_mutex_take(mutex, timeout);
 }
 
-void osal_mutex_unlock(osal_mutex_t mutex)
+osal_err_t osal_mutex_trytake(osal_mutex_t mutex)
 {
-    OSAL_CHECK_PARAM(OSAL_MUTEX_IS_VALID(mutex));
-    
-    /* Call RTOS-specific implementation */
-    _osal_mutex_unlock(mutex);
+    return _osal_mutex_trytake(mutex);
 }
 
-/*------------------------------------------------------------------------------
- * Extended Mutex Functions (optional)
- *----------------------------------------------------------------------------*/
-
-#ifdef OSAL_MUTEX_EXTENDED_API
-
-osal_result_t osal_mutex_get_holder(osal_mutex_t mutex, osal_task_t *holder)
+osal_err_t osal_mutex_release(osal_mutex_t mutex)
 {
-    OSAL_CHECK_PARAM_RET(OSAL_MUTEX_IS_VALID(mutex), OSAL_INVALID_PARAM);
-    OSAL_CHECK_PARAM_RET(holder != NULL, OSAL_INVALID_PARAM);
-    
-    /* RTOS-specific implementation would be needed */
-    return OSAL_NOT_SUPPORTED;
+    return _osal_mutex_release(mutex);
 }
 
-osal_result_t osal_mutex_lock_from_isr(osal_mutex_t mutex, bool *task_woken)
+osal_err_t osal_mutex_control(osal_mutex_t mutex, int cmd, void *arg)
 {
-    OSAL_CHECK_PARAM_RET(OSAL_MUTEX_IS_VALID(mutex), OSAL_INVALID_PARAM);
-    OSAL_CHECK_PARAM_RET(task_woken != NULL, OSAL_INVALID_PARAM);
-    
-    /* RTOS-specific implementation would be needed */
-    return OSAL_NOT_SUPPORTED;
+    return _osal_mutex_control(mutex, cmd, arg);
 }
-
-osal_result_t osal_mutex_unlock_from_isr(osal_mutex_t mutex, bool *task_woken)
-{
-    OSAL_CHECK_PARAM_RET(OSAL_MUTEX_IS_VALID(mutex), OSAL_INVALID_PARAM);
-    OSAL_CHECK_PARAM_RET(task_woken != NULL, OSAL_INVALID_PARAM);
-    
-    /* RTOS-specific implementation would be needed */
-    return OSAL_NOT_SUPPORTED;
-}
-
-#endif /* OSAL_MUTEX_EXTENDED_API */

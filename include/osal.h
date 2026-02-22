@@ -1,447 +1,266 @@
-/**
- * @file    osal.h
- * @brief   Operating System Abstraction Layer (OSAL) public interface
- *
- * This file defines the operating system abstraction layer interface for embedded systems.
- * It provides a RTOS-independent API for task management, inter-process communication,
- * synchronization, timing, and memory management. Application code should only include this header.
- *
- * @note    This is the public interface - implementations are in osal/common and osal/<rtos>
- */
-
 #ifndef OSAL_H
 #define OSAL_H
 
+#include "osal_common_def.h"
+#include "_osal_interface.h"
+
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdarg.h>
-
-/* Includes OSAL configuration */
-#include "../framework/config/osal_config.h"
-
-    /*------------------------------------------------------------------------------
-     * Common Type Definitions
-     *----------------------------------------------------------------------------*/
-
-    /** Task handle (opaque type) */
-    typedef void *osal_task_t;
-
-    /** Queue handle (opaque type) */
-    typedef void *osal_queue_t;
-
-    /** Semaphore handle (opaque type) */
-    typedef void *osal_sem_t;
-
-    /** Mutex handle (opaque type) */
-    typedef void *osal_mutex_t;
-
-    /** Event flag group handle (opaque type) */
-    typedef void *osal_event_t;
-
-    /** Software timer handle (opaque type) */
-    typedef void *osal_timer_t;
-
-    /** Function pointer type for task entry functions */
-    typedef void (*osal_task_func_t)(void *arg);
-
-    /** Function pointer type for timer callback functions */
-    typedef void (*osal_timer_callback_t)(void *arg);
-
-    /** Event wait type for event flag groups */
-    typedef enum
-    {
-        OSAL_EVENT_WAIT_ANY = 0, /**< Wait for any of the specified bits */
-        OSAL_EVENT_WAIT_ALL      /**< Wait for all of the specified bits */
-    } osal_event_wait_type_t;
-
-    /** Return code type */
-    typedef int osal_result_t;
-
-/** Common return codes */
-#define OSAL_OK 0             /**< Operation successful */
-#define OSAL_ERROR -1         /**< General error */
-#define OSAL_TIMEOUT -2       /**< Operation timeout */
-#define OSAL_INVALID_PARAM -3 /**< Invalid parameter */
-#define OSAL_NO_MEMORY -4     /**< Insufficient memory */
-#define OSAL_NOT_SUPPORTED -5 /**< Feature not supported */
-
-/** Special timeout values */
-#define OSAL_WAIT_FOREVER 0xFFFFFFFFU /**< Wait indefinitely */
-#define OSAL_NO_WAIT 0                /**< Do not wait */
-
-    /*------------------------------------------------------------------------------
-     * Task Management Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Create a new task
-     * @param name          Task name (for debugging)
-     * @param func          Task entry function
-     * @param arg           Argument passed to task function
-     * @param stack_size    Stack size in bytes
-     * @param priority      Task priority (higher number = higher priority)
-     * @return              Task handle, or NULL on failure
-     */
-    osal_task_t osal_task_create(const char *name, osal_task_func_t func,
-                                 void *arg, int stack_size, int priority);
-
-    /**
-     * @brief Delete a task
-     * @param task          Task handle to delete
-     */
-    void osal_task_delete(osal_task_t task);
-
-    /**
-     * @brief Suspend a task
-     * @param task          Task handle to suspend
-     */
-    void osal_task_suspend(osal_task_t task);
-
-    /**
-     * @brief Resume a suspended task
-     * @param task          Task handle to resume
-     */
-    void osal_task_resume(osal_task_t task);
-
-    /**
-     * @brief Get task priority
-     * @param task          Task handle
-     * @return              Current priority of the task, or negative error code
-     */
-    int osal_task_get_priority(osal_task_t task);
-
-    /**
-     * @brief Set task priority
-     * @param task          Task handle
-     * @param priority      New priority for the task
-     */
-    void osal_task_set_priority(osal_task_t task, int priority);
-
-    /**
-     * @brief Delay task execution
-     * @param ms            Delay time in milliseconds
-     */
-    void osal_task_delay(uint32_t ms);
-
-    /**
-     * @brief Delay task execution until specified time
-     * @param last_wake_time Pointer to variable storing last wake time
-     * @param ms            Period in milliseconds
-     * @note                This function maintains fixed period execution and
-     *                      compensates for drift
-     */
-    void osal_task_delay_until(uint32_t *last_wake_time, uint32_t ms);
-
-    /*------------------------------------------------------------------------------
-     * Queue Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Create a queue
-     * @param length        Maximum number of items in the queue
-     * @param item_size     Size of each item in bytes
-     * @return              Queue handle, or NULL on failure
-     */
-    osal_queue_t osal_queue_create(int length, int item_size);
-
-    /**
-     * @brief Delete a queue
-     * @param queue         Queue handle to delete
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_queue_delete(osal_queue_t queue);
-
-    /**
-     * @brief Send an item to a queue
-     * @param queue         Queue handle
-     * @param item          Pointer to item to send
-     * @param timeout_ms    Timeout in milliseconds (OSAL_WAIT_FOREVER or OSAL_NO_WAIT)
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_queue_send(osal_queue_t queue, const void *item,
-                                  uint32_t timeout_ms);
-
-    /**
-     * @brief Receive an item from a queue
-     * @param queue         Queue handle
-     * @param buffer        Pointer to buffer to receive item
-     * @param timeout_ms    Timeout in milliseconds (OSAL_WAIT_FOREVER or OSAL_NO_WAIT)
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_queue_receive(osal_queue_t queue, void *buffer,
-                                     uint32_t timeout_ms);
-
-    /**
-     * @brief Get number of items currently in the queue
-     * @param queue         Queue handle
-     * @return              Number of items in queue, or negative error code
-     */
-    int osal_queue_size(osal_queue_t queue);
-
-    /**
-     * @brief Get number of free spaces in the queue
-     * @param queue         Queue handle
-     * @return              Number of free spaces, or negative error code
-     */
-    int osal_queue_space(osal_queue_t queue);
-
-    /*------------------------------------------------------------------------------
-     * Semaphore Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Create a binary semaphore
-     * @return              Semaphore handle, or NULL on failure
-     */
-    osal_sem_t osal_sem_create(void);
-
-    /**
-     * @brief Delete a semaphore
-     * @param sem           Semaphore handle to delete
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_sem_delete(osal_sem_t sem);
-
-    /**
-     * @brief Take (acquire) a semaphore
-     * @param sem           Semaphore handle
-     * @param timeout_ms    Timeout in milliseconds (OSAL_WAIT_FOREVER or OSAL_NO_WAIT)
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_sem_take(osal_sem_t sem, uint32_t timeout_ms);
-
-    /**
-     * @brief Give (release) a semaphore
-     * @param sem           Semaphore handle
-     */
-    void osal_sem_give(osal_sem_t sem);
-
-    /**
-     * @brief Get current semaphore count
-     * @param sem           Semaphore handle
-     * @return              Current count, or negative error code
-     */
-    int osal_sem_get_count(osal_sem_t sem);
-
-    /*------------------------------------------------------------------------------
-     * Mutex Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Create a mutex
-     * @return              Mutex handle, or NULL on failure
-     */
-    osal_mutex_t osal_mutex_create(void);
-
-    /**
-     * @brief Delete a mutex
-     * @param mutex         Mutex handle to delete
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_mutex_delete(osal_mutex_t mutex);
-
-    /**
-     * @brief Lock a mutex
-     * @param mutex         Mutex handle
-     * @param timeout_ms    Timeout in milliseconds (OSAL_WAIT_FOREVER or OSAL_NO_WAIT)
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_mutex_lock(osal_mutex_t mutex, uint32_t timeout_ms);
-
-    /**
-     * @brief Unlock a mutex
-     * @param mutex         Mutex handle
-     */
-    void osal_mutex_unlock(osal_mutex_t mutex);
-
-    /*------------------------------------------------------------------------------
-     * Event Flag Group Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Create an event flag group
-     * @return              Event group handle, or NULL on failure
-     */
-    osal_event_t osal_event_create(void);
-
-    /**
-     * @brief Delete an event flag group
-     * @param event         Event group handle to delete
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_event_delete(osal_event_t event);
-
-    /**
-     * @brief Set bits in an event flag group
-     * @param event         Event group handle
-     * @param bits          Bits to set (bitmask)
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_event_set(osal_event_t event, uint32_t bits);
-
-    /**
-     * @brief Wait for bits in an event flag group
-     * @param event         Event group handle
-     * @param bits          Bits to wait for (bitmask)
-     * @param wait_type     Wait type (OSAL_EVENT_WAIT_ANY or OSAL_EVENT_WAIT_ALL)
-     * @param timeout_ms    Timeout in milliseconds (OSAL_WAIT_FOREVER or OSAL_NO_WAIT)
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_event_wait(osal_event_t event, uint32_t bits,
-                                  osal_event_wait_type_t wait_type,
-                                  uint32_t timeout_ms);
-
-    /**
-     * @brief Get current bits in an event flag group
-     * @param event         Event group handle
-     * @return              Current event bits
-     */
-    uint32_t osal_event_get(osal_event_t event);
-
-    /*------------------------------------------------------------------------------
-     * Software Timer Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Create a software timer
-     * @param callback      Timer callback function
-     * @param arg           Argument passed to callback function
-     * @param period_ms     Timer period in milliseconds
-     * @param periodic      true for periodic timer, false for one-shot
-     * @return              Timer handle, or NULL on failure
-     */
-    osal_timer_t osal_timer_create(osal_timer_callback_t callback, void *arg,
-                                   uint32_t period_ms, bool periodic);
-
-    /**
-     * @brief Delete a software timer
-     * @param timer         Timer handle to delete
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_timer_delete(osal_timer_t timer);
-
-    /**
-     * @brief Start a software timer
-     * @param timer         Timer handle to start
-     */
-    void osal_timer_start(osal_timer_t timer);
-
-    /**
-     * @brief Stop a software timer
-     * @param timer         Timer handle to stop
-     */
-    void osal_timer_stop(osal_timer_t timer);
-
-    /**
-     * @brief Get remaining time until timer expiration
-     * @param timer         Timer handle
-     * @return              Remaining time in milliseconds
-     */
-    uint32_t osal_timer_get_remaining(osal_timer_t timer);
-
-    /*------------------------------------------------------------------------------
-     * Memory Management Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Allocate dynamic memory
-     * @param size          Number of bytes to allocate
-     * @return              Pointer to allocated memory, or NULL on failure
-     */
-    void *osal_malloc(size_t size);
-
-    /**
-     * @brief Free dynamic memory
-     * @param ptr           Pointer to memory block to free
-     */
-    void osal_free(void *ptr);
-
-    /**
-     * @brief Allocate and zero-initialize dynamic memory
-     * @param nmemb         Number of elements to allocate
-     * @param size          Size of each element in bytes
-     * @return              Pointer to allocated memory, or NULL on failure
-     */
-    void *osal_calloc(size_t nmemb, size_t size);
-
-    /**
-     * @brief Reallocate dynamic memory
-     * @param ptr           Pointer to previously allocated memory block
-     * @param size          New size in bytes
-     * @return              Pointer to reallocated memory, or NULL on failure
-     */
-    void *osal_realloc(void *ptr, size_t size);
-
-    /**
-     * @brief Initialize memory management system
-     * @return              OSAL_OK on success, or error code
-     */
-    osal_result_t osal_mem_init(void);
-
-    /*------------------------------------------------------------------------------
-     * System Service Functions
-     *----------------------------------------------------------------------------*/
-
-    /**
-     * @brief Get system time in milliseconds
-     * @return              System time in milliseconds since startup
-     */
-    uint32_t osal_get_system_time(void);
-
-    /**
-     * @brief Get system tick count
-     * @return              System tick count (incremented at OSAL_TICK_RATE_HZ)
-     */
-    uint32_t osal_get_system_tick(void);
-
-    /**
-     * @brief Get system tick rate (ticks per second)
-     * @return              System tick rate in Hz
-     */
-    uint32_t osal_get_tick_rate(void);
-
-    /**
-     * @brief Perform system reset
-     * @note                This function does not return
-     */
-    void osal_system_reset(void);
-
-    /**
-     * @brief Enter critical section
-     * @note                Disables interrupts/scheduler
-     */
-    void osal_enter_critical(void);
-
-    /**
-     * @brief Exit critical section
-     * @note                Re-enables interrupts/scheduler
-     */
-    void osal_exit_critical(void);
-
-    /**
-     * @brief Initialize OSAL layer
-     * @return              OSAL_OK on success, or error code
-     * @note                Must be called before using any other OSAL function
-     */
-    osal_result_t osal_init(void);
-
-    /**
-     * @brief Start the scheduler
-     * @note                This function does not return on success
-     */
-    void osal_start_scheduler(void);
-
-    void (*osal_system_get_systemtick_handler_callback(void))(void);
-    void osal_register_callback(void (*callback)(void));
+/*------------------------------------------------------------------------------
+ * Task Management Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_task_init(osal_task_t thread,
+                          const char *name,
+                          void (*entry)(void *parameter),
+                          void *parameter,
+                          void *stack_start,
+                          osal_uint32_t stack_size,
+                          osal_uint8_t priority,
+                          osal_uint32_t tick);
+
+osal_err_t osal_task_detach(osal_task_t thread);
+
+osal_task_t osal_task_create(const char *name,
+                              void (*entry)(void *parameter),
+                              void *parameter,
+                              osal_uint32_t stack_size,
+                              osal_uint8_t priority,
+                              osal_uint32_t tick);
+
+osal_err_t osal_task_delete(osal_task_t thread);
+
+osal_task_t osal_task_self(void);
+
+osal_task_t osal_task_find(const char *name);
+
+osal_err_t osal_task_startup(osal_task_t thread);
+
+osal_err_t osal_task_yield(void);
+
+osal_err_t osal_task_delay(osal_tick_t tick);
+
+osal_err_t osal_task_mdelay(osal_int32_t ms);
+
+osal_err_t osal_task_suspend(osal_task_t thread);
+
+osal_err_t osal_task_resume(osal_task_t thread);
+
+osal_err_t osal_task_control(osal_task_t thread, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Semaphore Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_sem_init(osal_semaphore_t sem,
+                         const char *name,
+                         osal_uint32_t value,
+                         osal_uint8_t flag);
+
+osal_err_t osal_sem_detach(osal_semaphore_t sem);
+
+osal_semaphore_t osal_sem_create(const char *name,
+                                 osal_uint32_t value,
+                                 osal_uint8_t flag);
+
+osal_err_t osal_sem_delete(osal_semaphore_t sem);
+
+osal_err_t osal_sem_take(osal_semaphore_t sem, osal_int32_t timeout);
+
+osal_err_t osal_sem_trytake(osal_semaphore_t sem);
+
+osal_err_t osal_sem_release(osal_semaphore_t sem);
+
+osal_err_t osal_sem_control(osal_semaphore_t sem, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Mutex Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_mutex_init(osal_mutex_t mutex,
+                           const char *name,
+                           osal_uint8_t flag);
+
+osal_err_t osal_mutex_detach(osal_mutex_t mutex);
+
+osal_mutex_t osal_mutex_create(const char *name, osal_uint8_t flag);
+
+osal_err_t osal_mutex_delete(osal_mutex_t mutex);
+
+osal_err_t osal_mutex_take(osal_mutex_t mutex, osal_int32_t timeout);
+
+osal_err_t osal_mutex_trytake(osal_mutex_t mutex);
+
+osal_err_t osal_mutex_release(osal_mutex_t mutex);
+
+osal_err_t osal_mutex_control(osal_mutex_t mutex, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Event Flag Group Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_event_init(osal_event_t event,
+                           const char *name,
+                           osal_uint8_t flag);
+
+osal_err_t osal_event_detach(osal_event_t event);
+
+osal_event_t osal_event_create(const char *name, osal_uint8_t flag);
+
+osal_err_t osal_event_delete(osal_event_t event);
+
+osal_err_t osal_event_send(osal_event_t event, osal_uint32_t set);
+
+osal_err_t osal_event_recv(osal_event_t event,
+                           osal_uint32_t set,
+                           osal_uint8_t opt,
+                           osal_int32_t timeout,
+                           osal_uint32_t *recved);
+
+osal_err_t osal_event_control(osal_event_t event, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Mailbox Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_mb_init(osal_mb_t mb,
+                        const char *name,
+                        void *msgpool,
+                        osal_size_t size,
+                        osal_uint8_t flag);
+
+osal_err_t osal_mb_detach(osal_mb_t mb);
+
+osal_mb_t osal_mb_create(const char *name, osal_size_t size, osal_uint8_t flag);
+
+osal_err_t osal_mb_delete(osal_mb_t mb);
+
+osal_err_t osal_mb_send(osal_mb_t mb, osal_ubase_t value);
+
+osal_err_t osal_mb_send_wait(osal_mb_t mb,
+                              osal_ubase_t value,
+                              osal_int32_t timeout);
+
+osal_err_t osal_mb_urgent(osal_mb_t mb, osal_ubase_t value);
+
+osal_err_t osal_mb_recv(osal_mb_t mb,
+                        osal_ubase_t *value,
+                        osal_int32_t timeout);
+
+osal_err_t osal_mb_control(osal_mb_t mb, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Message Queue Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_mq_init(osal_mq_t mq,
+                        const char *name,
+                        void *msgpool,
+                        osal_size_t msg_size,
+                        osal_size_t pool_size,
+                        osal_uint8_t flag);
+
+osal_err_t osal_mq_detach(osal_mq_t mq);
+
+osal_mq_t osal_mq_create(const char *name,
+                         osal_size_t msg_size,
+                         osal_size_t max_msgs,
+                         osal_uint8_t flag);
+
+osal_err_t osal_mq_delete(osal_mq_t mq);
+
+osal_err_t osal_mq_send(osal_mq_t mq, const void *buffer, osal_size_t size);
+
+osal_err_t osal_mq_send_wait(osal_mq_t mq,
+                             const void *buffer,
+                             osal_size_t size,
+                             osal_int32_t timeout);
+
+osal_err_t osal_mq_urgent(osal_mq_t mq, const void *buffer, osal_size_t size);
+
+osal_err_t osal_mq_recv(osal_mq_t mq,
+                         void *buffer,
+                         osal_size_t size,
+                         osal_int32_t timeout);
+
+osal_err_t osal_mq_control(osal_mq_t mq, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Software Timer Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_timer_init(osal_timer_t timer,
+                           const char *name,
+                           void (*timeout)(void *parameter),
+                           void *parameter,
+                           osal_tick_t time,
+                           osal_uint8_t flag);
+
+osal_err_t osal_timer_detach(osal_timer_t timer);
+
+osal_timer_t osal_timer_create(const char *name,
+                               void (*timeout)(void *parameter),
+                               void *parameter,
+                               osal_tick_t time,
+                               osal_uint8_t flag);
+
+osal_err_t osal_timer_delete(osal_timer_t timer);
+
+osal_err_t osal_timer_start(osal_timer_t timer);
+
+osal_err_t osal_timer_stop(osal_timer_t timer);
+
+osal_err_t osal_timer_control(osal_timer_t timer, int cmd, void *arg);
+
+/*------------------------------------------------------------------------------
+ * Memory Management Functions
+ *----------------------------------------------------------------------------*/
+void osal_heap_init(void *begin_addr, void *end_addr);
+
+void *osal_malloc(osal_size_t nbytes);
+
+void osal_free(void *ptr);
+
+void *osal_realloc(void *ptr, osal_size_t nbytes);
+
+void *osal_calloc(osal_size_t count, osal_size_t size);
+
+/*------------------------------------------------------------------------------
+ * Memory Pool Functions
+ *----------------------------------------------------------------------------*/
+osal_err_t osal_mp_init(osal_mp_t mp,
+                        const char *name,
+                        void *start,
+                        osal_size_t size,
+                        osal_size_t block_size);
+
+osal_err_t osal_mp_detach(osal_mp_t mp);
+
+osal_mp_t osal_mp_create(const char *name,
+                         osal_size_t block_count,
+                         osal_size_t block_size);
+
+osal_err_t osal_mp_delete(osal_mp_t mp);
+
+void *osal_mp_alloc(osal_mp_t mp, osal_int32_t time);
+
+void osal_mp_free(void *block);
+
+/*------------------------------------------------------------------------------
+ * System Service Functions
+ *----------------------------------------------------------------------------*/
+osal_tick_t osal_tick_get(void);
+
+osal_tick_t osal_tick_from_millisecond(osal_int32_t ms);
+
+void osal_enter_critical(void);
+
+void osal_exit_critical(void);
+
+osal_base_t osal_critical_level(void);
+
+
+void (*osal_system_get_systemtick_handler_callback(void))(void);
+    
+void osal_register_callback(void (*callback)(void));
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* OSAL_H */
+#endif
