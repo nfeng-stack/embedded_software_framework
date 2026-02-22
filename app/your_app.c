@@ -16,22 +16,26 @@
 #include "elog.h"
 #define TAG "main"
 /* Traditional main function (used when RTOS is not enabled) */
-int main(void)
+
+void log_strategy(void)
 {
-    hal_uart1_init();
     elog_init();
     elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_ALL);
-    elog_set_fmt(ELOG_LVL_ERROR,ELOG_FMT_ALL);
+    elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_ALL);
     elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_ALL);
     elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_ALL);
     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_ALL);
     elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_ALL);
     elog_start();
+}
+
+int main(void)
+{
+    hal_uart1_init();
+    log_strategy();
     mpu6050_board_init();
-    elog_w(TAG, "this is log");
     while (1)
     {
-        elog_warn(TAG, "hello world\n");
         osal_task_delay(100);
     }
 }
