@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 osal_err_t osal_timer_init(osal_timer_t timer,
                            const char *name,

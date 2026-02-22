@@ -1,4 +1,5 @@
-#include "osal_interface.h"
+#include "osal.h"
+#include "_osal_interface.h"
 
 osal_tick_t osal_tick_get(void)
 {

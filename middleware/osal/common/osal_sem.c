@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 osal_err_t osal_sem_init(osal_semaphore_t sem,
                          const char *name,

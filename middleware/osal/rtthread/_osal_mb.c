@@ -7,7 +7,7 @@ _osal_err_t _osal_mb_init(_osal_mb_t mb,
                            _osal_size_t size,
                            _osal_uint8_t flag)
 {
-    return (_osal_err_t)rt_mb_init(mb, name, msgpool, size);
+    return (_osal_err_t)rt_mb_init(mb, name, msgpool, size,flag);
 }
 
 _osal_err_t _osal_mb_detach(_osal_mb_t mb)

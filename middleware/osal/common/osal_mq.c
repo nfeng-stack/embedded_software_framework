@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 osal_err_t osal_mq_init(osal_mq_t mq,
                         const char *name,

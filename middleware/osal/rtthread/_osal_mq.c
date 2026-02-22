@@ -8,7 +8,7 @@ _osal_err_t _osal_mq_init(_osal_mq_t mq,
                            _osal_size_t pool_size,
                            _osal_uint8_t flag)
 {
-    return (_osal_err_t)rt_mq_init(mq, name, msgpool, msg_size, pool_size);
+    return (_osal_err_t)rt_mq_init(mq, name, msgpool, msg_size, pool_size,flag);
 }
 
 _osal_err_t _osal_mq_detach(_osal_mq_t mq)

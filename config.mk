@@ -43,7 +43,7 @@ C_DEFS = \
 	-DHAL_PLATFORM_STM32H5=1
 
 # C includes (basic - will be extended in main Makefile)
-C_INCLUDES = \
+C_INCLUDES = -Iframework/log/inc\
 	-Iinclude \
 
 
@@ -128,6 +128,9 @@ ifeq ($(OSAL_RTOS),rtthread)
     C_DEFS += -DRT_THREAD -DOSAL_RTOS_RTTHREAD=1
     C_INCLUDES += -Ithird_party/rt-thread/include
 endif
+C_INCLUDES += -Imiddleware/osal/rtthread
+C_INCLUDES += -Imiddleware/osal/common/xx_osExtension
+C_INCLUDES += -Imiddleware/osal/common
 
 #===============================================================================
 # Export variables

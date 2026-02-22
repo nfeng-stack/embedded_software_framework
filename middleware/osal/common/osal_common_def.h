@@ -14,13 +14,21 @@ typedef _osal_size_t   osal_size_t;
 typedef _osal_ubase_t  osal_ubase_t;
 typedef _osal_bool_t   osal_bool_t;
 
+typedef _osal_task osal_task;
 typedef _osal_task_t osal_task_t;
+typedef _osal_semaphore osal_semaphore;
 typedef _osal_semaphore_t osal_semaphore_t;
+typedef _osal_mutex osal_mutex;
 typedef _osal_mutex_t osal_mutex_t;
+typedef _osal_event osal_event;
 typedef _osal_event_t osal_event_t;
+typedef _osal_mb osal_mb;
 typedef _osal_mb_t osal_mb_t;
+typedef _osal_mq osal_mq;
 typedef _osal_mq_t osal_mq_t;
+typedef _osal_timer osal_timer;
 typedef _osal_timer_t osal_timer_t;
+typedef _osal_mp osal_mp;
 typedef _osal_mp_t osal_mp_t;
 typedef _osal_mem_t osal_mem_t;
 

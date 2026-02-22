@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 osal_err_t osal_task_init(osal_task_t thread,
                           const char *name,

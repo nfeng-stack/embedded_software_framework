@@ -10,5 +10,4 @@ OBJ_FILES := $(CFILES:.c=.o) $(ASFILES:.s=.o)
 obj-y += $(OBJ_FILES)
 obj-y += xx_osExtension/
 
-EXTRA_CFLAGS += -Imiddleware/osal/rtthread
-EXTRA_CFLAGS += -Iframework/config
+

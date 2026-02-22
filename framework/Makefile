@@ -4,4 +4,5 @@
 obj-y += src/
 obj-y += ports/$(FRAMEWORK_PORT)/
 obj-y += startup/c/
+obj-y += log/
 -include local.mk

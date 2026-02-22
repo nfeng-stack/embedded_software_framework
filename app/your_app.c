@@ -6,7 +6,6 @@
  * It shows the recommended initialization sequence and provides example tasks.
  */
 
-
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
@@ -14,15 +13,25 @@
 #include "hal.h"
 #include "osal.h"
 #include "mpu6050_wrap.h"
+#include "elog.h"
+#define TAG "main"
 /* Traditional main function (used when RTOS is not enabled) */
 int main(void)
 {
     hal_uart1_init();
+    elog_init();
+    elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_ALL);
+    elog_set_fmt(ELOG_LVL_ERROR,ELOG_FMT_ALL);
+    elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_ALL);
+    elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_ALL);
+    elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_ALL);
+    elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_ALL);
+    elog_start();
     mpu6050_board_init();
-
+    elog_w(TAG, "this is log");
     while (1)
     {
-        printf("tick :%d\n", osal_tick_get());
-        osal_task_delay(5000);
+        elog_warn(TAG, "hello world\n");
+        osal_task_delay(100);
     }
 }

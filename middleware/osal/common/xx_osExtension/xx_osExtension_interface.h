@@ -2,7 +2,7 @@
 #define XX_OSEXTENSION_INTERFACE_H
 
 #include "xx_osExtension_def.h"
-#include "../../rt_thread/_osal_interface.h"
+#include "_osal_interface.h"
 
 #ifdef __cplusplus
 extern "C" {

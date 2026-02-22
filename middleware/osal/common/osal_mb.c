@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 osal_err_t osal_mb_init(osal_mb_t mb,
                         const char *name,

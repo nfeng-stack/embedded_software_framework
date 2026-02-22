@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 void osal_heap_init(void *begin_addr, void *end_addr)
 {

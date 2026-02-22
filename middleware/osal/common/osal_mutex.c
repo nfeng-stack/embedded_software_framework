@@ -1,4 +1,4 @@
-#include "osal_interface.h"
+#include "osal.h"
 
 osal_err_t osal_mutex_init(osal_mutex_t mutex,
                            const char *name,

@@ -253,6 +253,8 @@ void _osal_exit_critical(void);
 
 _osal_base_t _osal_critical_level(void);
 _osal_object_t _osal_object_find(const char *name, _osal_uint8_t type);
+void osal_register_callback_ll(void (*callback)(void));
+void (*osal_get_need_register_to_systemtick_hander_callback_ll(void))(void);
 
 #ifdef __cplusplus
 }

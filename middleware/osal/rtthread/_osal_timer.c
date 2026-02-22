@@ -9,7 +9,7 @@ _osal_err_t _osal_timer_init(_osal_timer_t timer,
                               _osal_uint8_t flag)
 {
     rt_timer_init(timer, name, timeout, parameter, time, flag);
-    return OSAL_EOK;
+    return _OSAL_EOK;
 }
 
 _osal_err_t _osal_timer_detach(_osal_timer_t timer)

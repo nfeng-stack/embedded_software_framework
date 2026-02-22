@@ -1,4 +1,4 @@
-#include "../xx_osExtension/xx_osExtension_interface.h"
+#include "xx_osExtension_interface.h"
 
 osal_object_t osal_object_find(const char *name, osal_obj_type_t type)
 {

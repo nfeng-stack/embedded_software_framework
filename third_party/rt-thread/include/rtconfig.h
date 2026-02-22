@@ -100,7 +100,7 @@
 // <h>Memory Management Configuration
 // <c1>Memory Pool Management
 //  <i>Memory Pool Management
-// #define RT_USING_MEMPOOL
+#define RT_USING_MEMPOOL
 // </c>
 // <c1>Dynamic Heap Management(Algorithm: small memory )
 //  <i>Dynamic Heap Management

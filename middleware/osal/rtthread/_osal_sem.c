@@ -6,7 +6,7 @@ _osal_err_t _osal_sem_init(_osal_semaphore_t sem,
                             _osal_uint32_t value,
                             _osal_uint8_t flag)
 {
-    return (_osal_err_t)rt_sem_init(sem, name, value);
+    return (_osal_err_t)rt_sem_init(sem, name, value,flag);
 }
 
 _osal_err_t _osal_sem_detach(_osal_semaphore_t sem)
@@ -19,7 +19,7 @@ _osal_semaphore_t _osal_sem_create(const char *name,
                                    _osal_uint8_t flag)
 {
 #ifdef RT_USING_HEAP
-    return (_osal_semaphore_t)rt_sem_create(name, value);
+    return (_osal_semaphore_t)rt_sem_create(name, value,flag);
 #else
     return RT_NULL;
 #endif
