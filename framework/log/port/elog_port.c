@@ -79,7 +79,11 @@ void elog_port_deinit(void) {
  * @param size log size
  */
 void elog_port_output(const char *log, size_t size) {
-    printf("%.*s",size,log);
+    // printf("%.*s",size,log);
+extern void output_char(int file, char *ptr, unsigned int len);
+
+    output_char(0,log,size);
+
 }
 
 /**

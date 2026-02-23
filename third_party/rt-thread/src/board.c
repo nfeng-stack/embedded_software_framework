@@ -93,10 +93,11 @@ static int uart_init(void)
     return 0;
 }
 INIT_BOARD_EXPORT(uart_init);
-
+#include "elog.h"
+#define LOG_TAG     "rt"
 void rt_hw_console_output(const char *str)
 {
-  
+  log_e(str);
 }
 
 #endif

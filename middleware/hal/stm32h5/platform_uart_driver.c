@@ -1,11 +1,12 @@
 #include "stm32h5xx_hal.h"
-
-UART_HandleTypeDef huart1;
+#include "stm32h5xx_ll_usart.h" // 请根据您的芯片型号修改，如 stm32f1xx_ll_usart.h
+#include "stm32h5xx_ll_gpio.h"  // 请根据您的芯片型号修改
 
 /* USART1 init function */
 
 void platform_uart1_init(void)
 {
+    UART_HandleTypeDef huart1 = {0};
 
     huart1.Instance = USART1;
     huart1.Init.BaudRate = 921600;
@@ -34,6 +35,8 @@ void platform_uart1_init(void)
     {
         // Error_Handler();
     }
+    // HAL_UART_Transmit(&huart1,"hello world\n",10,0xffffffff);
+    __HAL_UART_ENABLE(&huart1);
 }
 
 void HAL_UART_MspInit(UART_HandleTypeDef *uartHandle)
@@ -102,16 +105,53 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *uartHandle)
 
 
 /* USER CODE BEGIN 1 */
+
+
+/**
+ * @brief  重定向 C 库的 fputc 函数（printf 会调用它）到串口
+ * @param  ch: 要发送的字符
+ * @retval 返回发送的字符
+ */
 int __io_putchar(int ch)
 {
-    // HAL_UART_Transmit(&huart1,(uint8_t *)&ch,1,0xffffffff);
-    HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xfffff);
-    return 0;
+    // 等待发送数据寄存器空 (TDRE 标志位)
+    while (!LL_USART_IsActiveFlag_TXE(USART1)) {}
+    // 将字符写入发送数据寄存器
+    LL_USART_TransmitData8(USART1, (uint8_t)ch);
+
+    // // 等待发送完成 (TC 标志位) - 确保字符已移位发送出去
+    // while (!LL_USART_IsActiveFlag_TC(USART1)) {}
+
+    return ch; // 返回发送的字符
 }
-int _write(int file, char *ptr, int len)
+
+/**
+ * @brief  重定向 C 库的 _write 函数（fwrite 等会调用它）到串口
+ * @param  file: 文件句柄（未使用）
+ * @param  ptr:  要发送的数据指针
+ * @param  len:  数据长度
+ * @retval 成功返回发送的字节数，失败返回 -1
+ */
+int my_write(int file, char *ptr, unsigned int len)
 {
-    (void)file;
-    HAL_UART_Transmit(&huart1, (uint8_t *)ptr, len, 0xfffff);
-    return len;
+    // HAL_UART_Transmit(&huart1,ptr,len,0xffffffff);
+    (void)file; // 忽略文件句柄参数
+
+    for (int i = 0; i < len; i++)
+    {
+        // 等待发送数据寄存器空 (TDRE 标志位)
+        while (!LL_USART_IsActiveFlag_TXE(USART1)) {}
+        // 将字符写入发送数据寄存器
+        LL_USART_TransmitData8(USART1, (uint8_t)ptr[i]);
+
+        // 等待发送完成 (TC 标志位) - 确保字符已移位发送出去
+        // while (!LL_USART_IsActiveFlag_TC(USART1)) {}
+    }
+
+    return len; // 返回成功发送的字节数
 }
 /* USER CODE END 1 */
+void output_char(int file, char *ptr, unsigned int len)
+{
+    my_write(file,ptr,len);
+}

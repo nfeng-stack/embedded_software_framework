@@ -44,7 +44,8 @@ C_DEFS = \
 
 # C includes (basic - will be extended in main Makefile)
 C_INCLUDES = -Iframework/log/inc\
-	-Iinclude \
+			-Iinclude \
+			-Iframework/include
 
 
 # ASM defines

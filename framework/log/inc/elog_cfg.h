@@ -46,10 +46,10 @@
 /* output filter's tag level max num */
 #define ELOG_FILTER_TAG_LVL_MAX_NUM              5
 /* output newline sign */
-#define ELOG_NEWLINE_SIGN                        "\n"
+#define ELOG_NEWLINE_SIGN                        "\r\n"
 /*---------------------------------------------------------------------------*/
 /* enable log color */
-// #define ELOG_COLOR_ENABLE
+#define ELOG_COLOR_ENABLE
 // /* change the some level logs to not default color if you want */
 // #define ELOG_COLOR_ASSERT                        (F_MAGENTA B_NULL S_NORMAL)
 // #define ELOG_COLOR_ERROR                         (F_RED B_NULL S_NORMAL)
@@ -60,9 +60,9 @@
 /*---------------------------------------------------------------------------*/
 /* enable log fmt */
 /* comment it if you don't want to output them at all */
-#define ELOG_FMT_USING_FUNC
+// #define ELOG_FMT_USING_FUNC
 // #define ELOG_FMT_USING_DIR
-#define ELOG_FMT_USING_LINE
+// #define ELOG_FMT_USING_LINE
 /*---------------------------------------------------------------------------*/
 /* enable asynchronous output mode */
 #define ELOG_ASYNC_OUTPUT_ENABLE

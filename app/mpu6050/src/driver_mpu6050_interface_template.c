@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2015 - present LibDriver All rights reserved
- * 
+ *
  * The MIT License (MIT)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,7 +19,7 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE. 
+ * SOFTWARE.
  *
  * @file      driver_mpu6050_interface_template.c
  * @brief     driver mpu6050 interface template source file
@@ -41,7 +41,9 @@
 #include "hal.h"
 #include "driver_mpu6050_interface.h"
 #include "osal.h"
-
+#define LOG_TAG "MPU6050"
+#include "elog.h"
+#include "driver_mpu6050.h"
 
 /**
  * @brief  interface iic bus init
@@ -82,7 +84,7 @@ uint8_t mpu6050_interface_iic_deinit(void)
  */
 uint8_t mpu6050_interface_iic_read(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len)
 {
-    return hal_common_iic_read(addr,reg,buf,len);
+    return hal_common_iic_read(addr, reg, buf, len);
 }
 
 /**
@@ -98,7 +100,7 @@ uint8_t mpu6050_interface_iic_read(uint8_t addr, uint8_t reg, uint8_t *buf, uint
  */
 uint8_t mpu6050_interface_iic_write(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len)
 {
-   return hal_common_iic_write(addr,reg,buf,len);
+    return hal_common_iic_write(addr, reg, buf, len);
 }
 
 /**
@@ -108,7 +110,11 @@ uint8_t mpu6050_interface_iic_write(uint8_t addr, uint8_t reg, uint8_t *buf, uin
  */
 void mpu6050_interface_delay_ms(uint32_t ms)
 {
-    osal_task_delay(ms);
+    uint32_t i = 0 ,j = 0;
+    for (i = 0 ; i < ms *1000 ; i ++)
+        for(j = 0 ; j < 1000 ; j ++){
+            j = j;
+        }
 }
 
 /**
@@ -120,13 +126,14 @@ void mpu6050_interface_debug_print(const char *const fmt, ...)
 {
     char buffer[128];
     va_list args;
-    
+
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-    
-    printf("%s", buffer);
+
+    log_v("%s", buffer);
 }
+extern void mpu_task_relase_sem(uint8_t type);
 
 /**
  * @brief     interface receive callback
@@ -137,42 +144,43 @@ void mpu6050_interface_receive_callback(uint8_t type)
 {
     switch (type)
     {
-        case MPU6050_INTERRUPT_MOTION :
-        {
-            mpu6050_interface_debug_print("mpu6050: irq motion.\n");
-            
-            break;
-        }
-        case MPU6050_INTERRUPT_FIFO_OVERFLOW :
-        {
-            mpu6050_interface_debug_print("mpu6050: irq fifo overflow.\n");
-            
-            break;
-        }
-        case MPU6050_INTERRUPT_I2C_MAST :
-        {
-            mpu6050_interface_debug_print("mpu6050: irq i2c master.\n");
-            
-            break;
-        }
-        case MPU6050_INTERRUPT_DMP :
-        {
-            mpu6050_interface_debug_print("mpu6050: irq dmp\n");
-            
-            break;
-        }
-        case MPU6050_INTERRUPT_DATA_READY :
-        {
-            mpu6050_interface_debug_print("mpu6050: irq data ready\n");
-            
-            break;
-        }
-        default :
-        {
-            mpu6050_interface_debug_print("mpu6050: irq unknown code.\n");
-            
-            break;
-        }
+    case MPU6050_INTERRUPT_MOTION:
+    {
+        mpu6050_interface_debug_print("mpu6050: irq motion.\n");
+        mpu_task_relase_sem(1);
+        break;
+    }
+    case MPU6050_INTERRUPT_FIFO_OVERFLOW:
+    {
+        mpu6050_interface_debug_print("mpu6050: irq fifo overflow.\n");
+
+        break;
+    }
+    case MPU6050_INTERRUPT_I2C_MAST:
+    {
+        mpu6050_interface_debug_print("mpu6050: irq i2c master.\n");
+
+        break;
+    }
+    case MPU6050_INTERRUPT_DMP:
+    {
+        mpu6050_interface_debug_print("mpu6050: irq dmp\n");
+
+        break;
+    }
+    case MPU6050_INTERRUPT_DATA_READY:
+    {
+        // mpu6050_interface_debug_print("mpu6050: irq data ready\n");
+        mpu_task_relase_sem(0);
+
+        break;
+    }
+    default:
+    {
+        mpu6050_interface_debug_print("mpu6050: irq unknown code.\n");
+
+        break;
+    }
     }
 }
 
@@ -186,48 +194,48 @@ void mpu6050_interface_dmp_tap_callback(uint8_t count, uint8_t direction)
 {
     switch (direction)
     {
-        case MPU6050_DMP_TAP_X_UP :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq x up with %d.\n", count);
-            
-            break;
-        }
-        case MPU6050_DMP_TAP_X_DOWN :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq x down with %d.\n", count);
-            
-            break;
-        }
-        case MPU6050_DMP_TAP_Y_UP :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq y up with %d.\n", count);
-            
-            break;
-        }
-        case MPU6050_DMP_TAP_Y_DOWN :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq y down with %d.\n", count);
-            
-            break;
-        }
-        case MPU6050_DMP_TAP_Z_UP :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq z up with %d.\n", count);
-            
-            break;
-        }
-        case MPU6050_DMP_TAP_Z_DOWN :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq z down with %d.\n", count);
-            
-            break;
-        }
-        default :
-        {
-            mpu6050_interface_debug_print("mpu6050: tap irq unknown code.\n");
-            
-            break;
-        }
+    case MPU6050_DMP_TAP_X_UP:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq x up with %d.\n", count);
+
+        break;
+    }
+    case MPU6050_DMP_TAP_X_DOWN:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq x down with %d.\n", count);
+
+        break;
+    }
+    case MPU6050_DMP_TAP_Y_UP:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq y up with %d.\n", count);
+
+        break;
+    }
+    case MPU6050_DMP_TAP_Y_DOWN:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq y down with %d.\n", count);
+
+        break;
+    }
+    case MPU6050_DMP_TAP_Z_UP:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq z up with %d.\n", count);
+
+        break;
+    }
+    case MPU6050_DMP_TAP_Z_DOWN:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq z down with %d.\n", count);
+
+        break;
+    }
+    default:
+    {
+        mpu6050_interface_debug_print("mpu6050: tap irq unknown code.\n");
+
+        break;
+    }
     }
 }
 
@@ -240,35 +248,35 @@ void mpu6050_interface_dmp_orient_callback(uint8_t orientation)
 {
     switch (orientation)
     {
-        case MPU6050_DMP_ORIENT_PORTRAIT :
-        {
-            mpu6050_interface_debug_print("mpu6050: orient irq portrait.\n");
-            
-            break;
-        }
-        case MPU6050_DMP_ORIENT_LANDSCAPE :
-        {
-            mpu6050_interface_debug_print("mpu6050: orient irq landscape.\n");
-            
-            break;
-        }
-        case MPU6050_DMP_ORIENT_REVERSE_PORTRAIT :
-        {
-            mpu6050_interface_debug_print("mpu6050: orient irq reverse portrait.\n");
-            
-            break;
-        }
-        case MPU6050_DMP_ORIENT_REVERSE_LANDSCAPE :
-        {
-            mpu6050_interface_debug_print("mpu6050: orient irq reverse landscape.\n");
-            
-            break;
-        }
-        default :
-        {
-            mpu6050_interface_debug_print("mpu6050: orient irq unknown code.\n");
-            
-            break;
-        }
+    case MPU6050_DMP_ORIENT_PORTRAIT:
+    {
+        mpu6050_interface_debug_print("mpu6050: orient irq portrait.\n");
+
+        break;
+    }
+    case MPU6050_DMP_ORIENT_LANDSCAPE:
+    {
+        mpu6050_interface_debug_print("mpu6050: orient irq landscape.\n");
+
+        break;
+    }
+    case MPU6050_DMP_ORIENT_REVERSE_PORTRAIT:
+    {
+        mpu6050_interface_debug_print("mpu6050: orient irq reverse portrait.\n");
+
+        break;
+    }
+    case MPU6050_DMP_ORIENT_REVERSE_LANDSCAPE:
+    {
+        mpu6050_interface_debug_print("mpu6050: orient irq reverse landscape.\n");
+
+        break;
+    }
+    default:
+    {
+        mpu6050_interface_debug_print("mpu6050: orient irq unknown code.\n");
+
+        break;
+    }
     }
 }

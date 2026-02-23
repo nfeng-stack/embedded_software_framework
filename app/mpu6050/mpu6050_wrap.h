@@ -3,6 +3,6 @@
 
 void mpu6050_board_init();
 
-
+void mpu6050_init_task(void);
 
 #endif
