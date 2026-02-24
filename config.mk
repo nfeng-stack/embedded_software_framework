@@ -43,9 +43,9 @@ C_DEFS = \
 	-DHAL_PLATFORM_STM32H5=1
 
 # C includes (basic - will be extended in main Makefile)
-C_INCLUDES = -Iframework/log/inc\
+C_INCLUDES = -Iframework/service/log_service/inc\
 			-Iinclude \
-			-Iframework/include
+			-Iframework/service/framework_service/include
 
 
 # ASM defines

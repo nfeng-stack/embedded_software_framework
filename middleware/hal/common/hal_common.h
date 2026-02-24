@@ -17,8 +17,7 @@ extern "C"
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Includes platform selection */
-#include "platform_select.h"
+
 
     /*------------------------------------------------------------------------------
      * Platform-Specific Includes

@@ -134,18 +134,7 @@ void __attribute__((weak)) DebugMon_Handler(void) { Default_Handler(); }
 void __attribute__((weak)) PendSV_Handler(void) { Default_Handler(); }
 void __attribute__((weak)) SysTick_Handler(void) { Default_Handler(); }
 
-/*------------------------------------------------------------------------------
- * CMSIS Standard Functions (weak compatibility layer)
- *----------------------------------------------------------------------------*/
-void __attribute__((weak)) SystemInit(void)
-{
-    framework_system_clock_init();
-}
 
-void __attribute__((weak)) _data_init(void)
-{
-    framework_data_init();
-}
 
 /*------------------------------------------------------------------------------
  * Reset Handler

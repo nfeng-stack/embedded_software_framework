@@ -31,6 +31,7 @@
 #include <sys/times.h>
 #include <sys/types.h>
 #include <stddef.h>
+#include "osal.h"
 
 /* Variables */
 extern int __io_putchar(int ch) __attribute__((weak));
@@ -291,11 +292,6 @@ void *_sbrk_r(struct _reent *ptr, ptrdiff_t incr)
     return _sbrk(incr);
 }
 
-/*------------------------------------------------------------------------------
- * Thread-safe memory allocation locks for Newlib (RT-Thread compatible)
- *----------------------------------------------------------------------------*/
-
-#include "framework_port.h"  /* Framework port interface for critical sections */
 
 /**
  * @brief Lock for malloc family functions (thread-safe)
@@ -307,7 +303,7 @@ void *_sbrk_r(struct _reent *ptr, ptrdiff_t incr)
  */
 void __malloc_lock(struct _reent *reent)
 {
-    framework_port_enter_critical();  /* Enter critical section */
+    osal_enter_critical();  /* Enter critical section */
 }
 
 /**
@@ -319,5 +315,5 @@ void __malloc_lock(struct _reent *reent)
  */
 void __malloc_unlock(struct _reent *reent)
 {
-    framework_port_exit_critical();   /* Exit critical section */
+    osal_exit_critical();   /* Exit critical section */
 }

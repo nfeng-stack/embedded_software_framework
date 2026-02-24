@@ -11,15 +11,13 @@
  * 5. Jump to main() or RTOS entry point
  */
 
-#include "framework_interrupts.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
-
-#ifdef HAL_PLATFORM_STM32H5
 #include "hal.h"
 #include "osal.h"
-#endif
+#include "framework_interrupts.h"
+
 
 /*------------------------------------------------------------------------------
  * External Symbols (defined in linker script)
@@ -44,11 +42,8 @@ extern uint32_t _eramcode;  /* End of RAM code section in RAM */
 void framework_system_clock_init(void)
 {
     /* Call HAL layer to configure system clock */
-#ifdef HAL_PLATFORM_STM32H5
     hal_system_clock_pre_init();
-#else
     /* For generic platforms, assume clock is already configured by startup code */
-#endif
 }
 
 void framework_data_init(void)
