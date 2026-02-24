@@ -11,10 +11,7 @@
  * 5. Jump to main() or RTOS entry point
  */
 
-#include "framework.h"
-#include "framework_rtos.h"
 #include "framework_interrupts.h"
-#include "framework_debug.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
