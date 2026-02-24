@@ -49,7 +49,7 @@
 #define ELOG_NEWLINE_SIGN                        "\r\n"
 /*---------------------------------------------------------------------------*/
 /* enable log color */
-#define ELOG_COLOR_ENABLE
+// #define ELOG_COLOR_ENABLE
 // /* change the some level logs to not default color if you want */
 // #define ELOG_COLOR_ASSERT                        (F_MAGENTA B_NULL S_NORMAL)
 // #define ELOG_COLOR_ERROR                         (F_RED B_NULL S_NORMAL)
@@ -65,7 +65,7 @@
 // #define ELOG_FMT_USING_LINE
 /*---------------------------------------------------------------------------*/
 /* enable asynchronous output mode */
-#define ELOG_ASYNC_OUTPUT_ENABLE
+// #define ELOG_ASYNC_OUTPUT_ENABLE
 /* the highest output level for async mode, other level will sync output */
 #define ELOG_ASYNC_OUTPUT_LVL                    ELOG_LVL_ASSERT
 /* buffer size for asynchronous output mode */

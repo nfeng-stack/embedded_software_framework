@@ -2,3 +2,4 @@
 obj-y += framework_init.o
 obj-y += framework_interrupts.o
 obj-y += syscalls.o
+obj-y += framework_register_device.o
