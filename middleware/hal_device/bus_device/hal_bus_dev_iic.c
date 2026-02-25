@@ -10,6 +10,7 @@ extern "C"
 int hal_bus_dev_i2c_init(hal_device_t * selfdev)
 {
     log_v("%s\n",__func__);
+    // hal_bus_dev_i2c_init_config_t init_config = selfdev->config.init_config;
     return 0;
 }
 int hal_bus_dev_i2c_open(hal_device_t * selfdev)

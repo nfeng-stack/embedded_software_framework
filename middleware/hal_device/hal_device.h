@@ -108,25 +108,6 @@ typedef struct hal_dev_state {
     hal_dev_holder_t hold_head;             /**< 持有设备的链表头 */
 } hal_dev_state_t;
 
-/* ================== 设备操作接口适配具体硬件 ================== */
-/**
- * @brief 设备操作接口
- *
- * 本结构体定义了设备的标准操作接口，所有设备驱动必须实现这些接口。
- * 设计遵循Linux字符设备驱动框架思想，确保接口的统一性和可移植性。
- * 每个函数指针都应有清晰的语义和错误处理机制。
- */
-typedef struct hal_ops {
-    int (*l_init)(struct hal_dev *selfdev);                /**< 设备初始化 */
-    int (*l_open)(struct hal_dev *selfdev);                /**< 设备打开 */
-    int (*l_close)(struct hal_dev *selfdev);               /**< 设备关闭 */
-    int (*l_deinit)(struct hal_dev *selfdev);              /**< 设备去初始化 */
-    int (*l_read)(struct hal_dev *selfdev, void *buf, size_t len, uint32_t timeout_ms); /**< 设备读操作 */
-    int (*l_write)(struct hal_dev *selfdev, const void *buf, size_t len, uint32_t timeout_ms); /**< 设备写操作 */
-    int (*l_control)(struct hal_dev *selfdev, uint32_t cmd, void *arg); /**< 设备控制命令 */
-    int (*l_notify_register)(struct hal_dev *selfdev, void (*notify_callback)(struct hal_dev *callback_dev)); /**< 通知回调注册 */
-    void *l_extend_ops; /* 设备的扩展操作，指向设备扩展操作结构体 */
-} hal_l_ops_t;
 /* ================== 设备操作接口 ================== */
 /**
  * @brief 设备操作接口
@@ -144,7 +125,6 @@ typedef struct hal_ops {
     int (*write)(struct hal_dev *selfdev, const void *buf, size_t len, uint32_t timeout_ms); /**< 设备写操作 */
     int (*control)(struct hal_dev *selfdev, uint32_t cmd, void *arg); /**< 设备控制命令 */
     int (*notify_register)(struct hal_dev *selfdev, void (*notify_callback)(struct hal_dev *callback_dev)); /**< 通知回调注册 */
-    hal_l_ops_t * l_ops;
     void *extend_ops; /* 设备的扩展操作，指向设备扩展操作结构体 */
 } hal_ops_t;
 
