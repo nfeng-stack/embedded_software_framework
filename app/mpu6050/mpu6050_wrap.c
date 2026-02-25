@@ -1,5 +1,5 @@
 #define LOG_TAG "MPU6050"
-#define MPU6050_MOTION_THRESHOLD_MG 500.0f
+#define MPU6050_MOTION_THRESHOLD_MG 1200.0f
 // # Low power sample rate in Hz (default 10Hz)
 #define MPU6050_LOW_POWER_SAMPLE_RATE 10
 // # High speed sample rate in Hz (default 200Hz)
@@ -27,57 +27,45 @@ void mpu6050_stop(void);
  */
 void mpu6050_enter_high_speed_mode(void)
 {
-    log_v("HIGH SPEED MODE: Starting configuration...\n");
 
     /* 禁用循环唤醒模式 */
     uint8_t res = mpu6050_set_cycle_wake_up(mpu_handle, MPU6050_BOOL_FALSE);
-    log_v("HIGH SPEED MODE: Disable cycle wake-up: %d\n", res);
 
     /* 设置高速采样率 */
     uint8_t divider = (1000 / MPU6050_HIGH_SPEED_SAMPLE_RATE) - 1;
     res = mpu6050_set_sample_rate_divider(mpu_handle, divider);
-    log_v("HIGH SPEED MODE: Set sample rate divider %d (for %dHz): %d\n", divider, MPU6050_HIGH_SPEED_SAMPLE_RATE, res);
 
     /* 设置低通滤波器为等级0 (最大带宽) */
     res = mpu6050_set_low_pass_filter(mpu_handle, MPU6050_LOW_PASS_FILTER_0);
-    log_v("HIGH SPEED MODE: Set low pass filter to level 0: %d\n", res);
 
     /* 禁用FIFO (使用寄存器读取模式) */
     res = mpu6050_set_fifo(mpu_handle, MPU6050_BOOL_FALSE);
-    log_v("HIGH SPEED MODE: Disable FIFO: %d\n", res);
 
     /* 确保FIFO溢出中断被禁用 */
     res = mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FIFO_OVERFLOW, MPU6050_BOOL_FALSE);
-    log_v("HIGH SPEED MODE: Disable FIFO overflow interrupt: %d\n", res);
 
     /* 禁用运动检测中断 (由调用者根据需求启用) */
     res = mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_MOTION, MPU6050_BOOL_FALSE);
-    log_v("HIGH SPEED MODE: Disable motion interrupt: %d\n", res);
 
     /* 禁用I2C主机中断 (可能由DMA传输触发) */
     res = mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_I2C_MAST, MPU6050_BOOL_FALSE);
-    log_v("HIGH SPEED MODE: Disable I2C master interrupt: %d\n", res);
 
     /* 禁用数据就绪中断 (仅在需要收集数据时启用) */
     res = mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_FALSE);
-    log_v("HIGH SPEED MODE: Disable data ready interrupt: %d\n", res);
 
     /* 验证配置 */
     uint8_t sample_rate_reg;
     mpu6050_get_sample_rate_divider(mpu_handle, &sample_rate_reg);
-    log_v("HIGH SPEED MODE: Actual sample rate divider register: 0x%02X (expected: 0x%02X)\n",
-          sample_rate_reg, divider);
 
     uint8_t fifo_enabled;
     mpu6050_get_fifo(mpu_handle, &fifo_enabled);
-    log_v("HIGH SPEED MODE: FIFO enabled: %d (expected: 0)\n", fifo_enabled);
 
     uint8_t data_ready_enabled;
     mpu6050_get_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, &data_ready_enabled);
     log_v("HIGH SPEED MODE: Data ready interrupt enabled after config: %d (should be 0)\n", data_ready_enabled);
 
     log_v("MPU6050 entered high speed mode (%dHz sampling, interrupts disabled by default)\n", MPU6050_HIGH_SPEED_SAMPLE_RATE);
-    log_v("HIGH SPEED MODE: Configuration completed successfully\n");
+    return ;
 }
 
 /**
@@ -126,13 +114,14 @@ void mpu6050_motion_detect_init(void)
     uint8_t int_status;
     mpu6050_get_interrupt_status(mpu_handle, &int_status);
     log_v("Cleared MPU6050 interrupt status: 0x%02X\n", int_status);
+    return;
 }
 
 void exit_callback(void)
 {
     // log_v("this callback\n");
-    hal_clean_it();
     mpu6050_irq_handler(mpu_handle);
+    hal_clean_it();
 }
 osal_task_t mpu_task_t = NULL;
 osal_semaphore_t mpu_sem = NULL;
@@ -155,6 +144,7 @@ void mpu_task_relase_sem(uint8_t type)
             {
                 mpu6050_stop();
                 count = 0;
+                log_e("mpu6050 stop entry low power\n");
             }
         }
         else
@@ -166,10 +156,18 @@ void mpu_task_relase_sem(uint8_t type)
     {
         /*清楚数据就绪 打开运动检测*/
         uint8_t res = mpu6050_basic_read(acc, gry);
-        log_e("motion int acc_x:%.2f acc_y:%.2f acc_z:%.2f gry_x:%.2f gry_y:%.2f gry_z:%.2f\n",
-              acc[0], acc[1], acc[2], gry[0], gry[1], gry[2]);
-        mpu6050_get_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, (mpu6050_bool_t *)&type);
-        mpu6050_start();
+        if (res == 0) {
+            log_e("motion int acc_x:%.2f acc_y:%.2f acc_z:%.2f gry_x:%.2f gry_y:%.2f gry_z:%.2f\n",
+                acc[0], acc[1], acc[2], gry[0], gry[1], gry[2]);
+            mpu6050_get_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, (mpu6050_bool_t *)&type);
+            mpu6050_start();
+            log_e("mpu6050 start entry normal\n");
+        } else
+        {
+            mpu6050_set_interrupt(mpu_handle,MPU6050_INTERRUPT_MOTION,MPU6050_BOOL_FALSE);
+            mpu6050_set_interrupt(mpu_handle,MPU6050_INTERRUPT_DATA_READY,MPU6050_BOOL_FALSE);
+            log_e("mpu6050 error ...\n");
+        }
     }
 }
 
@@ -209,6 +207,7 @@ void mpu6050_enter_low_power_mode(void)
 
     log_e("MPU6050 entered low power mode (%.2fHz wake-up, %dHz sampling)\n",
           (float)MPU6050_WAKEUP_FREQUENCY, MPU6050_LOW_POWER_SAMPLE_RATE);
+    return;
 }
 
 void mpu6050_start(void)
@@ -230,7 +229,7 @@ void mpu6050_task(void *param)
 {
 
     static uint8_t i = 0;
-
+    mpu6050_start();
     while (1)
     {
         osal_sem_take(mpu_sem, -1);
@@ -258,6 +257,7 @@ void mpu6050_task(void *param)
             MX_X_CUBE_AI_Process();
             osal_task_delay(2000);
         }
+        log_v("mpu6050_task run ...\n");
     }
 }
 
@@ -304,7 +304,6 @@ void mpu6050_init_task(void)
     }
     mpu6050_motion_detect_init();
     hal_gpio_init_int(); /* 配置硬件中断使能 */
-    mpu6050_start();
     /* 进入低功耗检测状态*/
     // mpu6050_stop();
     mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 10, 10, 1);
@@ -315,4 +314,5 @@ void mpu6050_init_task(void)
         return;
     }
     osal_task_startup(mpu_task_t);
+    return;
 }

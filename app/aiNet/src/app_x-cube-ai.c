@@ -55,6 +55,7 @@
 #include "ai_datatypes_defines.h"
 #include "network.h"
 #include "network_data.h"
+#include "elog.h"
 
 /* USER CODE BEGIN includes */
 #include <math.h>
@@ -102,10 +103,10 @@ static void ai_log_err(const ai_error err, const char *fct)
 {
   /* USER CODE BEGIN log */
   if (fct)
-    printf("TEMPLATE - Error (%s) - type=0x%02x code=0x%02x\r\n", fct,
+    log_e("TEMPLATE - Error (%s) - type=0x%02x code=0x%02x\r\n", fct,
         err.type, err.code);
   else
-    printf("TEMPLATE - Error - type=0x%02x code=0x%02x\r\n", err.type, err.code);
+    log_e("TEMPLATE - Error - type=0x%02x code=0x%02x\r\n", err.type, err.code);
 
   do {} while (1);
   /* USER CODE END log */
@@ -173,7 +174,7 @@ extern float raw_data[200][6];
 int acquire_and_process_data(ai_i8* data[])
 {
     /* 复制MPU6050采集的数据到AI输入缓冲区 */
-    printf("AI: Copying MPU6050 data to AI input buffer (%d bytes)\n", AI_NETWORK_IN_1_SIZE_BYTES);
+    log_e("AI: Copying MPU6050 data to AI input buffer (%d bytes)\n", AI_NETWORK_IN_1_SIZE_BYTES);
     memcpy(data[0], raw_data, AI_NETWORK_IN_1_SIZE_BYTES);
     return 0;
     /* 没有新数据，跳过推理 */
@@ -183,7 +184,7 @@ int post_process(ai_i8* data[])
 {
   /* 处理跌倒检测结果 */
   float *logits = (float*)data[0];
-  printf("AI logits: [%f, %f]\n", logits[0], logits[1]);
+  log_e("AI logits: [%f, %f]\n", logits[0], logits[1]);
   
   /* Softmax将logits转换为概率 (数值稳定实现) */
   float max_val = (logits[0] > logits[1]) ? logits[0] : logits[1];
@@ -192,18 +193,18 @@ int post_process(ai_i8* data[])
   float sum = exp0 + exp1;
   float prob_no_fall = exp1 / sum;   /* 类别1: 非跌倒概率 */
   float prob_fall = exp0 / sum;      /* 类别0: 跌倒概率 */
-  printf("nfeng220 fall_logits:%.2f,no_fall_logits:%.2f",logits[0],logits[1]);
-  printf("Probabilities: NoFall=%.2f%%, Fall=%.2f%%\n", 
+  log_e("nfeng220 fall_logits:%.2f,no_fall_logits:%.2f",logits[0],logits[1]);
+  log_e("Probabilities: NoFall=%.2f%%, Fall=%.2f%%\n", 
          prob_no_fall * 100.0f, prob_fall * 100.0f);
   
   /* 判断是否为跌倒 (基于概率阈值0.5) */
   if (prob_fall > 0.5f) {
-    printf("Fall detected! Confidence: %.2f%%\n", prob_fall * 100.0f);
+    log_e("Fall detected! Confidence: %.2f%%\n", prob_fall * 100.0f);
     /* 可以触发警报 (例如点亮LED) */
     // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
     // HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
   } else {
-    printf("No fall detected. Confidence: %.2f%%\n", prob_no_fall * 100.0f);
+    log_e("No fall detected. Confidence: %.2f%%\n", prob_no_fall * 100.0f);
     // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
     // HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
   }
@@ -217,7 +218,7 @@ int post_process(ai_i8* data[])
 void MX_X_CUBE_AI_Init(void)
 {
     /* USER CODE BEGIN 5 */
-  printf("\r\nTEMPLATE - initialization\r\n");
+  log_e("\r\nAI - initialization\r\n");
 
   ai_boostrap(data_activations0);
     /* USER CODE END 5 */
@@ -227,7 +228,7 @@ void MX_X_CUBE_AI_Process(void)
 {
   int res = -1;
 
-  printf("TEMPLATE - run - main loop\r\n");
+  log_e("AI - run \r\n");
 
   if (network) {
 
