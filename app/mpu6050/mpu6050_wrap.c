@@ -149,6 +149,13 @@ void mpu_task_relase_sem(uint8_t type)
             // log_e("acc_x:%.2f acc_y:%.2f acc_z:%.2f gry_x:%.2f gry_y:%.2f gry_z:%.2f\n",\
             //     acc[0],acc[1],acc[2],gry[0],gry[1],gry[2]);
             osal_sem_release(mpu_sem);
+            static uint16_t count = 0;
+            count++;
+            if(count == 200)
+            {
+                mpu6050_stop();
+                count = 0;
+            }
         }
         else
         {
@@ -217,6 +224,7 @@ void mpu6050_stop(void)
     mpu6050_enter_low_power_mode();
     mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_MOTION, MPU6050_BOOL_TRUE);
 }
+extern void MX_X_CUBE_AI_Process(void);
 
 void mpu6050_task(void *param)
 {
@@ -235,8 +243,8 @@ void mpu6050_task(void *param)
         raw_data[i][5] = acc[5];
         if (++i == 200)
         {
-            mpu6050_stop(); /*关闭数据就绪中断，打开检测中断*/
-            log_v("mpu6050 buffer over\n");
+            log_v("mpu6050 buffer full\n");
+            // mpu6050_stop(); /*关闭数据就绪中断，打开检测中断*/
             for (uint8_t j = 0; j < 200; j++)
             {
                 if (j % 10 == 0)
@@ -247,6 +255,7 @@ void mpu6050_task(void *param)
                 }
             }
             i = 0;
+            MX_X_CUBE_AI_Process();
             osal_task_delay(2000);
         }
     }
@@ -295,10 +304,10 @@ void mpu6050_init_task(void)
     }
     mpu6050_motion_detect_init();
     hal_gpio_init_int(); /* 配置硬件中断使能 */
-    // mpu6050_start();
+    mpu6050_start();
     /* 进入低功耗检测状态*/
-    mpu6050_stop();
-    mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 2, 10, 1);
+    // mpu6050_stop();
+    mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 10, 10, 1);
     mpu_sem = osal_sem_create("mpu_sem", 0, 0);
     if (mpu_task_t == NULL || mpu_sem == NULL)
     {

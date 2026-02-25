@@ -15,6 +15,7 @@
 #include "mpu6050_wrap.h"
 #include "elog.h"
 #include "hal_device.h"
+// #include "./aiNet/inc/app_x-cube-ai.h"
 extern int32_t hal_bus_dev_i2c_register();
 
 
@@ -31,11 +32,12 @@ void log_strategy(void)
     // elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_ALL);
     elog_start();
 }
-
+extern void MX_X_CUBE_AI_Init(void);
 int main(void)
 {
     hal_uart1_init();
     log_strategy();
+    MX_X_CUBE_AI_Init();
     // hal_bus_dev_i2c_register();
     // hal_device_t *i2c1 = hal_dev_find("i2c1");
     // if(i2c1 == NULL)

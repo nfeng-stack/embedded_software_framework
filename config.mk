@@ -66,8 +66,8 @@ endif
 STARTUP_FILE = framework/startup/c/startup.c
 
 # Libraries - Full Newlib C library (not nano version)
-LIBS = -lc -lm -lnosys -lgcc
-LIBDIR =
+LIBS = -l:NetworkRuntime1020_CM33_GCC.a -lc -lm -lnosys -lgcc
+LIBDIR = -LAI/Lib
 
 # Flash command (platform-specific)
 FLASH_CMD = st-flash write $(BIN_FILE) 0x08000000
