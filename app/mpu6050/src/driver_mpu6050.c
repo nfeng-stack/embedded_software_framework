@@ -62,6 +62,8 @@
 #define MPU6050_REG_CONFIG              0x1A        /**< configure register */
 #define MPU6050_REG_GYRO_CONFIG         0x1B        /**< gyro configure register */
 #define MPU6050_REG_ACCEL_CONFIG        0x1C        /**< accel configure register */
+#define MPU6050_REG_FF_THRESHOLE        0x1D        /**< free threshold register */
+#define MPU6050_REG_FF_DURATION         0x1E        /**< free duration register */
 #define MPU6050_REG_MOTION_THRESHOLD    0x1F        /**< motion threshold register */
 #define MPU6050_REG_MOTION_DURATION     0x20        /**< motion duration register */
 #define MPU6050_REG_FIFO_EN             0x23        /**< fifo enable register */
@@ -7378,6 +7380,128 @@ uint8_t mpu6050_set_motion_threshold(mpu6050_handle_t *handle, uint8_t threshold
     }
 
     return 0;                                                                                         /* success return 0 */
+}
+
+uint8_t mpu6050_set_free_threshold(mpu6050_handle_t *handle, uint8_t threshold)
+{
+    uint8_t res;
+
+    if (handle == NULL)                                                                               /* check handle */
+    {
+        return 2;                                                                                     /* return error */
+    }
+    if (handle->inited != 1)                                                                          /* check handle initialization */
+    {
+        return 3;                                                                                     /* return error */
+    }
+
+    res = a_mpu6050_iic_write(handle, MPU6050_REG_FF_THRESHOLE, (uint8_t *)&threshold, 1);        /* write motion threshold */
+    if (res != 0)                                                                                     /* check result */
+    {
+        handle->debug_print("mpu6050: write motion threshold failed.\n");                             /* write motion threshold failed*/
+
+        return 1;                                                                                     /* return error */
+    }
+
+    return 0;                                                                                         /* success return 0 */
+}
+uint8_t mpu6050_get_free_threshold(mpu6050_handle_t *handle, uint8_t *threshold)
+{
+    uint8_t res;
+
+    if (handle == NULL)                                                                             /* check handle */
+    {
+        return 2;                                                                                   /* return error */
+    }
+    if (handle->inited != 1)                                                                        /* check handle initialization */
+    {
+        return 3;                                                                                   /* return error */
+    }
+
+    res = a_mpu6050_iic_read(handle, MPU6050_REG_FF_THRESHOLE, (uint8_t *)threshold, 1);        /* read motion threshold */
+    if (res != 0)                                                                                   /* check result */
+    {
+        handle->debug_print("mpu6050: read motion threshold failed.\n");                            /* read motion threshold failed*/
+
+        return 1;                                                                                   /* return error */
+    }
+
+    return 0;                                                                                       /* success return 0 */
+}
+uint8_t mpu6050_set_free_duration(mpu6050_handle_t *handle, uint8_t duration)
+{
+    uint8_t res;
+
+    if (handle == NULL)                                                                             /* check handle */
+    {
+        return 2;                                                                                   /* return error */
+    }
+    if (handle->inited != 1)                                                                        /* check handle initialization */
+    {
+        return 3;                                                                                   /* return error */
+    }
+
+    res = a_mpu6050_iic_write(handle, MPU6050_REG_FF_DURATION, (uint8_t *)&duration, 1);        /* write motion duration */
+    if (res != 0)                                                                                   /* check result */
+    {
+        handle->debug_print("mpu6050: write motion duration failed.\n");                            /* write motion duration failed*/
+
+        return 1;                                                                                   /* return error */
+    }
+    return 0;
+}
+uint8_t mpu6050_get_free_duration(mpu6050_handle_t *handle, uint8_t *duration)
+{
+    uint8_t res;
+
+    if (handle == NULL)                                                                           /* check handle */
+    {
+        return 2;                                                                                 /* return error */
+    }
+    if (handle->inited != 1)                                                                      /* check handle initialization */
+    {
+        return 3;                                                                                 /* return error */
+    }
+
+    res = a_mpu6050_iic_read(handle, MPU6050_REG_FF_DURATION, (uint8_t *)duration, 1);        /* read motion duration */
+    if (res != 0)                                                                                 /* check result */
+    {
+        handle->debug_print("mpu6050: read motion duration failed.\n");                           /* read motion duration failed*/
+
+        return 1;                                                                                 /* return error */
+    }
+
+    return 0;                                                                                     /* success return 0 */
+}
+uint8_t mpu6050_free_threshold_convert_to_register(mpu6050_handle_t *handle, float mg, uint8_t *reg)
+{
+    if (handle == NULL)                  /* check handle */
+    {
+        return 2;                        /* return error */
+    }
+    if (handle->inited != 1)             /* check handle initialization */
+    {
+        return 3;                        /* return error */
+    }
+
+    *reg = (uint8_t)(mg / 32.0f);        /* convert real data to register data */
+
+    return 0;                            /* success return 0 */
+}
+uint8_t mpu6050_free_threshold_convert_to_data(mpu6050_handle_t *handle, uint8_t reg, float *mg)
+{
+    if (handle == NULL)                 /* check handle */
+    {
+        return 2;                       /* return error */
+    }
+    if (handle->inited != 1)            /* check handle initialization */
+    {
+        return 3;                       /* return error */
+    }
+
+    *mg = (float)(reg) * 32.0f;         /* convert raw data to real data */
+
+    return 0;                           /* success return 0 */
 }
 
 /**

@@ -147,7 +147,7 @@ void mpu6050_interface_receive_callback(uint8_t type)
     case MPU6050_INTERRUPT_MOTION:
     {
         mpu6050_interface_debug_print("mpu6050: irq motion.\n");
-        mpu_task_relase_sem(1);
+        // mpu_task_relase_sem(1);
         break;
     }
     case MPU6050_INTERRUPT_FIFO_OVERFLOW:
@@ -171,7 +171,7 @@ void mpu6050_interface_receive_callback(uint8_t type)
     case MPU6050_INTERRUPT_DATA_READY:
     {
         // mpu6050_interface_debug_print("mpu6050: irq data ready\n");
-        mpu_task_relase_sem(0);
+        // mpu_task_relase_sem(0);
 
         break;
     }

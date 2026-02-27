@@ -218,6 +218,7 @@ typedef enum
  */
 typedef enum  
 {
+    MPU6050_INTERRUPT_FREE          = 7,        /**< free */
     MPU6050_INTERRUPT_MOTION        = 6,        /**< motion */
     MPU6050_INTERRUPT_FIFO_OVERFLOW = 4,        /**< fifo overflow */
     MPU6050_INTERRUPT_I2C_MAST      = 3,        /**< i2c master */
@@ -2950,6 +2951,14 @@ uint8_t mpu6050_set_reg(mpu6050_handle_t *handle, uint8_t reg, uint8_t *buf, uin
  */
 uint8_t mpu6050_get_reg(mpu6050_handle_t *handle, uint8_t reg, uint8_t *buf, uint16_t len);
 
+
+
+uint8_t mpu6050_set_free_threshold(mpu6050_handle_t *handle, uint8_t threshold);
+uint8_t mpu6050_get_free_threshold(mpu6050_handle_t *handle, uint8_t *threshold);
+uint8_t mpu6050_set_free_duration(mpu6050_handle_t *handle, uint8_t duration);
+uint8_t mpu6050_get_free_duration(mpu6050_handle_t *handle, uint8_t *duration);
+uint8_t mpu6050_free_threshold_convert_to_register(mpu6050_handle_t *handle, float mg, uint8_t *reg);
+uint8_t mpu6050_free_threshold_convert_to_data(mpu6050_handle_t *handle, uint8_t reg, float *mg);
 /**
  * @}
  */

@@ -168,14 +168,14 @@ static int ai_run(void)
 
   return 0;
 }
-extern float raw_data[200][6];
+float net_data[200][6];
 
 /* USER CODE BEGIN 2 */
 int acquire_and_process_data(ai_i8* data[])
 {
     /* 复制MPU6050采集的数据到AI输入缓冲区 */
     log_e("AI: Copying MPU6050 data to AI input buffer (%d bytes)\n", AI_NETWORK_IN_1_SIZE_BYTES);
-    memcpy(data[0], raw_data, AI_NETWORK_IN_1_SIZE_BYTES);
+    memcpy(data[0], net_data, AI_NETWORK_IN_1_SIZE_BYTES);
     return 0;
     /* 没有新数据，跳过推理 */
 }
@@ -199,6 +199,11 @@ int post_process(ai_i8* data[])
   
   /* 判断是否为跌倒 (基于概率阈值0.5) */
   if (prob_fall > 0.5f) {
+    if(logits[0] < 5)
+    {
+      log_e("pre fall,but logits:%.2f < 5,so pre unkown\n",logits[0]);
+      return 0;
+    }
     log_e("Fall detected! Confidence: %.2f%%\n", prob_fall * 100.0f);
     /* 可以触发警报 (例如点亮LED) */
     // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);

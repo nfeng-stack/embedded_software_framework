@@ -51,6 +51,7 @@ int main(void)
         osal_task_delay(10000);
         // i2c1->opts.open(i2c1);
         // i2c1->opts.init(i2c1);
+
         log_v("os is runing ...\n");
         // printf("os is runing\n");
     }
