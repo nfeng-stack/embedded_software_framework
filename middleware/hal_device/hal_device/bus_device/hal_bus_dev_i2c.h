@@ -11,8 +11,6 @@
 #ifndef HAL_I2C_H
 #define HAL_I2C_H
 
-#include "hal_device.h"
-
 /* ================== I2C设备地址模式 ================== */
 /**
  * @brief I2C设备地址模式

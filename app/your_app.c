@@ -5,7 +5,7 @@
  * This file demonstrates how to use the HAL and OSAL layers in an embedded application.
  * It shows the recommended initialization sequence and provides example tasks.
  */
-#define     LOG_TAG     "main"
+#define LOG_TAG "main"
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
@@ -14,10 +14,6 @@
 #include "osal.h"
 #include "mpu6050_wrap.h"
 #include "elog.h"
-#include "hal_device.h"
-// #include "./aiNet/inc/app_x-cube-ai.h"
-extern int32_t hal_bus_dev_i2c_register();
-
 
 /* Traditional main function (used when RTOS is not enabled) */
 
@@ -37,22 +33,25 @@ int main(void)
 {
     hal_uart1_init();
     log_strategy();
-    MX_X_CUBE_AI_Init();
-    // hal_bus_dev_i2c_register();
-    // hal_device_t *i2c1 = hal_dev_find("i2c1");
-    // if(i2c1 == NULL)
-    // {
-    //     log_e("i2c1 not finde ...\n");
-    //     return -1;
-    // }
-    mpu6050_init_task();
-    while(1)
+    // MX_X_CUBE_AI_Init();
+    hal_uart2_init();
+    // mpu6050_init_task();
+    osal_task_delay(300);
+    hal_uart2_write("ati\r\n");
+    osal_task_delay(300);
+    uint8_t buffer[70] = {0};
+    uint16_t len = hal_uart2_read(buffer, sizeof(buffer));
+    log_v("%s %d\n", buffer, len);
+    hal_uart2_write("AT+CGSN\r\n");
+    osal_task_delay(300);
+    len = hal_uart2_read(buffer, sizeof(buffer));
+    log_v("%s %d\n", buffer, len);
+
+    while (1)
     {
         osal_task_delay(10000);
-        // i2c1->opts.open(i2c1);
-        // i2c1->opts.init(i2c1);
-
         log_v("os is runing ...\n");
         // printf("os is runing\n");
+        log_v("%s %d\n", buffer, len);
     }
 }

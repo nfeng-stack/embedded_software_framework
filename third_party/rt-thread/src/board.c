@@ -71,10 +71,7 @@ void rt_hw_board_init(void)
      * periodically with the frequency RT_TICK_PER_SECOND.
      */
     /* will add  config rt_os_tick_callback  to systemtick_hander*/
-    if (register_callback != RT_NULL)
-    {
-        register_callback();
-    }
+
     /* Call components board initial (use INIT_BOARD_EXPORT()) */
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();
@@ -83,6 +80,10 @@ void rt_hw_board_init(void)
 #if defined(RT_USING_USER_MAIN) && defined(RT_USING_HEAP)
     rt_system_heap_init(rt_heap_begin_get(), rt_heap_end_get());
 #endif
+    if (register_callback != RT_NULL)
+    {
+        register_callback();
+    }
 }
 
 #ifdef RT_USING_CONSOLE

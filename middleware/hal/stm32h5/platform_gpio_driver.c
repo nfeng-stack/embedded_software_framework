@@ -23,5 +23,4 @@ void platform_gpio_clean_it(void)
 {
     __HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_15);
     HAL_NVIC_ClearPendingIRQ(EXTI15_IRQn);
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_15);
 }

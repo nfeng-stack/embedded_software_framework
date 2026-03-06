@@ -1,36 +1,42 @@
-#ifndef  FRAMEWORK_RIGISTER_DEVICE_H
-#define  FRAMEWORK_RIGISTER_DEVICE_H
+#ifndef FRAMEWORK_REGISTER_DEVICE_H
+#define FRAMEWORK_REGISTER_DEVICE_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include <stdint.h>
+#include <stddef.h>
 
+/**
+ * @brief 注册设备
+ * 
+ * @param name 设备名称（用于查找）
+ * @param device 设备指针
+ * @return int32_t 0表示成功，负数表示错误
+ *         -1: 参数错误（name或device为NULL）
+ *         -2: 设备已存在
+ *         -3: 内存分配失败
+ */
+int32_t framework_register_device(const char *name, const void *device);
 
+/**
+ * @brief 查找设备
+ * 
+ * @param name 设备名称
+ * @return void* 设备指针，如果未找到则返回NULL
+ */
+void *framework_find_device(const char *name);
 
-typedef struct list
-{
-    struct  list *next;
-    void *dev;  
-}list_t;
+/**
+ * @brief 取消注册设备
+ * 
+ * @param name 设备名称
+ * @return int32_t 0表示成功，-1表示参数错误，-2表示设备未找到
+ */
+int32_t framework_unregister_device(const char *name);
 
-typedef struct framework_obj
-{
-    uint32_t obj_num;
-    list_t *obj_tail;
-    list_t *obj_head;
-}framework_obj_t;
+/**
+ * @brief 初始化设备注册表
+ * 
+ * @return void
+ */
+void framework_register_dev_init(void);
 
-
-
-
-int32_t framework_register_device(const void *device);
-int32_t framework_unregister_device(const void *device);
-void * framework_find_device(const char *name);
-
-
-
-#ifdef __cplusplus
-}
-#endif
-#endif
+#endif // FRAMEWORK_REGISTER_DEVICE_H

@@ -132,8 +132,9 @@ endif
 C_INCLUDES += -Imiddleware/osal/rtthread
 C_INCLUDES += -Imiddleware/osal/common/xx_osExtension
 C_INCLUDES += -Imiddleware/osal/common
-C_INCLUDES += -Imiddleware/hal_device/bus_device
-C_INCLUDES += -Imiddleware/hal_device
+# C_INCLUDES += -Imiddleware/hal_device
+# C_INCLUDES += -Imiddleware/hal_device/hal_device/bus_device
+# C_INCLUDES += -Imiddleware/hal_device/hal_device/sys_device
 
 #===============================================================================
 # Export variables

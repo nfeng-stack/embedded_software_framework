@@ -17,6 +17,7 @@
 #include "hal.h"
 #include "osal.h"
 #include "framework_interrupts.h"
+#include "framework_register_device.h"
 
 
 /*------------------------------------------------------------------------------
@@ -121,6 +122,8 @@ void framework_system_tick_callback_register(system_tick_inc_fun callback)
 void framework_register_os_tick_handler(void)
 {
     framework_system_tick_callback_register(osal_system_get_systemtick_handler_callback());
+    /**<使用动态内存堆创建设备驱动框架 */
+    // framework_register_dev_init();
 }
 
 void framework_sdk_base_init(void)

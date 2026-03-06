@@ -35,7 +35,8 @@ typedef enum {
     HAL_DEV_TYPE_BLOCK = 0x02, /**< 块设备: Flash存储器、SD卡等块级存储设备 */
     HAL_DEV_TYPE_BUS = 0x03,   /**< 总线接口设备: I2C、SPI、USART等通信总线设备 */
     HAL_DEV_TYPE_NET = 0x04,   /**< 网络设备: CAN、以太网等网络通信设备 */
-    HAL_DEV_TYPE_OTHER = 0x05, /**< 其他类型设备: 未归类设备 */
+    HAL_DEV_TYPE_SYS = 0x05,
+    HAL_DEV_TYPE_OTHER = 0x06, /**< 其他类型设备: 未归类设备 */
 } hal_dev_type_e;
 
 /* ================== 设备状态定义 ================== */
@@ -48,12 +49,13 @@ typedef enum {
  */
 typedef enum {
     HAL_DEV_NO_INIT = 0x00,  /**< 设备未初始化: 未进行任何初始化操作 */
-    HAL_DEV_OPENED = 0x01,   /**< 设备已打开: 已完成初始化，可进行读写操作 */
-    HAL_DEV_USING = 0x02,    /**< 设备正在使用: 已被应用层打开并处于活动状态 */
-    HAL_DEV_FAULT = 0x03,    /**< 设备故障: 设备出现错误，无法正常工作 */
-    HAL_DEV_CLOSED = 0x04,   /**< 设备已关闭: 已被应用层关闭，不再可进行操作 */
-    HAL_DEV_DEINIT = 0x05,   /**< 设备已去初始化: 已完成去初始化，恢复到未初始化状态 */
-    HAL_DEV_UNKNOWN = 0x06,  /**< 设备状态未知: 设备状态无法确定 */
+    HAL_DEV_INITED = 0X01,
+    HAL_DEV_OPENED = 0x02,   /**< 设备已打开: 已完成初始化，可进行读写操作 */
+    HAL_DEV_USING = 0x03,    /**< 设备正在使用: 已被应用层打开并处于活动状态 */
+    HAL_DEV_FAULT = 0x04,    /**< 设备故障: 设备出现错误，无法正常工作 */
+    HAL_DEV_CLOSED = 0x05,   /**< 设备已关闭: 已被应用层关闭，不再可进行操作 */
+    HAL_DEV_DEINIT = 0x06,   /**< 设备已去初始化: 已完成去初始化，恢复到未初始化状态 */
+    HAL_DEV_UNKNOWN = 0x07,  /**< 设备状态未知: 设备状态无法确定 */
 } hal_dev_state_e;
 
 /* ================== 设备错误码定义 ================== */
@@ -117,14 +119,14 @@ typedef struct hal_dev_state {
  * 每个函数指针都应有清晰的语义和错误处理机制。
  */
 typedef struct hal_ops {
-    int (*init)(struct hal_dev *selfdev);                /**< 设备初始化 */
-    int (*open)(struct hal_dev *selfdev);                /**< 设备打开 */
-    int (*close)(struct hal_dev *selfdev);               /**< 设备关闭 */
-    int (*deinit)(struct hal_dev *selfdev);              /**< 设备去初始化 */
-    int (*read)(struct hal_dev *selfdev, void *buf, size_t len, uint32_t timeout_ms); /**< 设备读操作 */
-    int (*write)(struct hal_dev *selfdev, const void *buf, size_t len, uint32_t timeout_ms); /**< 设备写操作 */
-    int (*control)(struct hal_dev *selfdev, uint32_t cmd, void *arg); /**< 设备控制命令 */
-    int (*notify_register)(struct hal_dev *selfdev, void (*notify_callback)(struct hal_dev *callback_dev)); /**< 通知回调注册 */
+    int (*init)(struct hal_dev *selfdev,struct hal_dev *parent_dev);                /**< 设备初始化 ,parent_dev只是一个操作该设备的密码，有这个密码才能使用设备接口*/
+    int (*open)(struct hal_dev *selfdev,struct hal_dev *parent_dev);                /**< 设备打开 */
+    int (*close)(struct hal_dev *selfdev,struct hal_dev *parent_dev);               /**< 设备关闭 */
+    int (*deinit)(struct hal_dev *selfdev,struct hal_dev *parent_dev);              /**< 设备去初始化 */
+    int (*read)(struct hal_dev *selfdev, struct hal_dev *parent_dev,void *buf, size_t len, uint32_t timeout_ms); /**< 设备读操作 */
+    int (*write)(struct hal_dev *selfdev, struct hal_dev *parent_dev,const void *buf, size_t len, uint32_t timeout_ms); /**< 设备写操作 */
+    int (*control)(struct hal_dev *selfdev,struct hal_dev *parent_dev, uint32_t cmd, void *arg); /**< 设备控制命令 */
+    int (*notify_register)(struct hal_dev *selfdev, struct hal_dev *parent_dev,void (*notify_callback)(struct hal_dev *callback_dev)); /**< 通知回调注册 */
     void *extend_ops; /* 设备的扩展操作，指向设备扩展操作结构体 */
 } hal_ops_t;
 
@@ -154,9 +156,9 @@ typedef struct hal_config {
 typedef struct hal_dev {
     const char *dev_name;                   /**< 设备名称，用于系统识别 */
     hal_dev_type_e device_class;      /**< 设备类型，用于分类和操作分发 */
-    hal_ops_t opts;                   /**< 设备操作接口 */
     hal_dev_config_t config;          /**< 设备工作配置 */
     hal_dev_state_t state;            /**< 设备状态管理结构 */
+    hal_ops_t opts;                   /**< 设备操作接口 */
     char *read_buffer;
     char *write_buffer;
 } hal_device_t;
@@ -172,7 +174,7 @@ typedef struct hal_dev {
  * @return HAL_ERR_SUCCESS表示成功，其他表示失败（错误码参考hal_errno_e）
  * @note 设备注册后，系统将管理设备的生命周期，应用层无需关心设备的内部实现
  */
-int hal_dev_register(const hal_device_t *dev);
+int hal_dev_register(const char *name,hal_device_t *dev);
 
 /**
  * @brief 从系统中注销设备
@@ -184,7 +186,7 @@ int hal_dev_register(const hal_device_t *dev);
  * @return HAL_ERR_SUCCESS表示成功，其他表示失败
  * @note 注销前应确保设备已关闭且处于未使用状态
  */
-int hal_dev_unregister(const hal_device_t *dev);
+int hal_dev_unregister(hal_device_t *dev);
 
 /**
  * @brief 在系统中查找设备
@@ -315,7 +317,9 @@ hal_device_t * hal_dev_get_parent(hal_device_t *dev);
  * @return HAL_ERR_SUCCESS表示成功，其他表示失败
  */
 int hal_dev_set_parent(hal_device_t *dev, hal_device_t *parent);
-
+#include "hal_bus_dev_i2c.h"
+#include "hal_sys_dev_clock.h"
+#include "hal_bus_dev_uart.h"
 #ifdef __cplusplus
 }
 #endif

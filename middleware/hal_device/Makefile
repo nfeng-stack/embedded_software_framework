@@ -1,2 +1,3 @@
+obj-y += hal_device/
+obj-y += platform_driver/
 obj-y += hal_device.o
-obj-y += bus_device/

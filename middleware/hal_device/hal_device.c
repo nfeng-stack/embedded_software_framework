@@ -5,8 +5,6 @@ extern "C"
 #endif
 #include "hal_device.h"
 #include "framework_register_device.h"
-#include "elog.h"
-#define LOG_TAG     "hal_dev"
 /* ================== 设备注册与管理接口 ================== */
 /**
  * @brief 注册设备到系统
@@ -18,15 +16,9 @@ extern "C"
  * @return HAL_ERR_SUCCESS表示成功，其他表示失败（错误码参考hal_errno_e）
  * @note 设备注册后，系统将管理设备的生命周期，应用层无需关心设备的内部实现
  */
-int hal_dev_register(const hal_device_t *dev) /* 函数的具体实现应该由框架层注册到内核去*/
-{    
-    int32_t res = framework_register_device((const void *)dev);
-    if (res)
-    {
-        log_e("%s,hal register dev error\n",__func__);
-        return -1;
-    }
-    return 0;
+int hal_dev_register(const char *name,hal_device_t *dev) /* 函数的具体实现应该由框架层注册到内核去*/
+{
+    return framework_register_device(name,dev);
 }
 
 /**
@@ -39,9 +31,12 @@ int hal_dev_register(const hal_device_t *dev) /* 函数的具体实现应该由�
  * @return HAL_ERR_SUCCESS表示成功，其他表示失败
  * @note 注销前应确保设备已关闭且处于未使用状态
  */
-int hal_dev_unregister(const hal_device_t *dev)
+int hal_dev_unregister(hal_device_t *dev)
 {
-    return framework_unregister_device((const void *)dev);   
+
+    int32_t res = framework_unregister_device(dev->dev_name); 
+    /** to do 需要实现释放结构体内部的动态内存 */
+    return res;
 }
 
 /**
@@ -56,7 +51,7 @@ int hal_dev_unregister(const hal_device_t *dev)
  */
 hal_device_t * hal_dev_find(const char * name)
 {
-    return (hal_device_t *)framework_find_device((const char *)name);
+    return (hal_device_t *)framework_find_device(name);
 }
 
 /**
@@ -72,7 +67,7 @@ hal_device_t * hal_dev_find(const char * name)
  */
 int hal_dev_init(hal_device_t *dev)
 {
-    return dev->opts.init(dev);
+    return dev->opts.init(dev, NULL);
 }
 
 /**
@@ -88,7 +83,7 @@ int hal_dev_init(hal_device_t *dev)
  */
 int hal_dev_deinit(hal_device_t *dev)
 {
-    return dev->opts.deinit(dev);
+    return dev->opts.deinit(dev, NULL);
 }
 
 /**

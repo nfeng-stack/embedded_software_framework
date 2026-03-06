@@ -4,10 +4,12 @@
 
 #include <stdint.h>
 void platform_uart1_init(void);
+void platform_uart2_init(void);
 void platform_iic_init(void); /* 所有的驱动函数应该具备参数，这里为了开发方便就省略了*/
 uint8_t platform_iic_read(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len);
 uint8_t platform_iic_write(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len);
 void platform_gpio_set_int(void);
 void platform_gpio_clean_it(void);
-
+uint16_t platform_uart2_read(uint8_t *buffer, uint16_t max_len);
+void platform_uart2_write(uint8_t *buffer,uint8_t len);
 #endif

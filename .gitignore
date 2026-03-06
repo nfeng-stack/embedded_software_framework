@@ -39,3 +39,4 @@ build/
 # 标签文件（ctags 等生成的索引）
 tags
 cscope.*
+.cache/

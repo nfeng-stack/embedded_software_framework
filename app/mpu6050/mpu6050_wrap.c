@@ -86,20 +86,19 @@ void mpu6050_task(void *param)
         log_e("mpu6050 get int state failed \n");
     }
     log_e("mpu6050 int status %#X\n", reg);
-    // res = mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_TRUE);
-    // if (res != 0)
-    // {
-    //     log_e("set free int failed\n");
-    //     return;
-    // }
-    // reg = 0;
-    // res = mpu6050_get_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, &reg);
-    // if (res != 0 || reg != 1)
-    // {
-    //     log_e("set free int failed\n");
-    // }
-    // log_e("mpu6050 int free enable %d\n", reg);
-    mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_TRUE);
+    res = mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_TRUE);
+    if (res != 0)
+    {
+        log_e("set free int failed\n");
+        return;
+    }
+    reg = 0;
+    res = mpu6050_get_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, &reg);
+    if (res != 0 || reg != 1)
+    {
+        log_e("set free int failed\n");
+    }
+    log_e("mpu6050 int free enable %d\n", reg);
 
     while (1)
     {
@@ -121,14 +120,14 @@ void mpu6050_task(void *param)
             return;
         }
 
-        // if (reg >> MPU6050_INTERRUPT_FREE && 0x01)
-        // {
-        //     /* 只有落体中断*/
-        //     mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_FALSE);
-        //     mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_TRUE);
-        // }
-        // else
-        // {
+        if (reg >> MPU6050_INTERRUPT_FREE && 0x01)
+        {
+            /* 只有落体中断*/
+            mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_FALSE);
+            mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_TRUE);
+        }
+        else
+        {
             /* 数据就绪中断*/
             if (i == 200)
             {
@@ -136,23 +135,22 @@ void mpu6050_task(void *param)
                 mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY | MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_FALSE);
                 for (uint8_t j = 0; j < 200; j++)
                 {
-                    // if (j % 10 == 0)
-                    // {
-                    //     log_d("%s [%d] acc[%.2f, %.2f, %.2f] gry[%.2f, %.2f, %.2f]\n",
-                    //           LOG_DATA, j, raw_data[j][0], raw_data[j][1], raw_data[j][2], raw_data[j][3], raw_data[j][4], raw_data[j][5]);
-                    //     osal_task_delay(10);
-                    // }
+                    if (j % 10 == 0)
+                    {
+                        log_d("%s [%d] acc[%.2f, %.2f, %.2f] gry[%.2f, %.2f, %.2f]\n",
+                              LOG_DATA, j, raw_data[j][0], raw_data[j][1], raw_data[j][2], raw_data[j][3], raw_data[j][4], raw_data[j][5]);
+                        osal_task_delay(10);
+                    }
                 }
                 i = 0;
                 quantize_data(raw_data,net_data,200);
                 MX_X_CUBE_AI_Process();
                 log_d("%s AI processing complete - waiting 2s before next buffer\n", LOG_DATA);
                 osal_task_delay(100);
-                // mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_TRUE);
-                mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_TRUE);
+                mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_TRUE);
 
             }
-        // }
+        }
     }
 }
 

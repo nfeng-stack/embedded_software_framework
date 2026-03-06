@@ -27,7 +27,9 @@ extern "C"
     uint8_t hal_common_iic_write(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len);
     void hal_gpio_init_int(void);
     void hal_clean_it(void);
-
+    void hal_uart2_init(void);
+uint16_t hal_uart2_read(uint8_t *buffer, uint16_t max_len);
+void hal_uart2_write(uint8_t *buffer);
 
 #ifdef __cplusplus
 }
