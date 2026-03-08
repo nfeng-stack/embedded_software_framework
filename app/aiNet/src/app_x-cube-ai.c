@@ -180,7 +180,7 @@ int acquire_and_process_data(ai_i8* data[])
     /* 没有新数据，跳过推理 */
 }
 
-int post_process(ai_i8* data[])
+int post_process(ai_i8* data[],uint8_t *is_fall)
 {
   /* 处理跌倒检测结果 */
   float *logits = (float*)data[0];
@@ -202,14 +202,17 @@ int post_process(ai_i8* data[])
     if(logits[0] < 5)
     {
       log_e("pre fall,but logits:%.2f < 5,so pre unkown\n",logits[0]);
+      *is_fall = 0;
       return 0;
     }
     log_e("Fall detected! Confidence: %.2f%%\n", prob_fall * 100.0f);
+    *is_fall = 1;
     /* 可以触发警报 (例如点亮LED) */
     // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
     // HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
   } else {
     log_e("No fall detected. Confidence: %.2f%%\n", prob_no_fall * 100.0f);
+    *is_fall = 0;
     // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
     // HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
   }
@@ -229,10 +232,10 @@ void MX_X_CUBE_AI_Init(void)
     /* USER CODE END 5 */
 }
 
-void MX_X_CUBE_AI_Process(void)
+uint8_t MX_X_CUBE_AI_Process(void)
 {
   int res = -1;
-
+  uint8_t is_fall = 0;
   log_e("AI - run \r\n");
 
   if (network) {
@@ -245,7 +248,7 @@ void MX_X_CUBE_AI_Process(void)
         res = ai_run();
       /* 3- post-process the predictions */
       if (res == 0)
-        res = post_process(data_outs);
+        res = post_process(data_outs ,&is_fall);
     } while (res!=0);
   }
 
@@ -253,6 +256,7 @@ void MX_X_CUBE_AI_Process(void)
     ai_error err = {AI_ERROR_INVALID_STATE, AI_ERROR_CODE_NETWORK};
     ai_log_err(err, "Process has FAILED");
   }
+  return is_fall;
 }
 #ifdef __cplusplus
 }

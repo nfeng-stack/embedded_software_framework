@@ -40,7 +40,6 @@ void exit_callback(void)
     hal_clean_it();
 }
 
-extern void MX_X_CUBE_AI_Process(void);
 extern float net_data[200][6];
 
 void quantize_data(float raw_data[200][6], float quantized_data[200][6], int num_data) {
@@ -74,6 +73,7 @@ void quantize_data(float raw_data[200][6], float quantized_data[200][6], int num
         }
     }
 }
+extern void ai_sem_relase(void);
 void mpu6050_task(void *param)
 {
 
@@ -144,7 +144,8 @@ void mpu6050_task(void *param)
                 }
                 i = 0;
                 quantize_data(raw_data,net_data,200);
-                MX_X_CUBE_AI_Process();
+                /**< 此处应该释放ai推理线程让其输出推理结果 */
+                ai_sem_relase();
                 log_d("%s AI processing complete - waiting 2s before next buffer\n", LOG_DATA);
                 osal_task_delay(100);
                 mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_FREE, MPU6050_BOOL_TRUE);
@@ -240,7 +241,7 @@ void mpu6050_init_task(void)
     }
     log_e("free duration %d\n", reg);
     hal_gpio_init_int(); /* 配置硬件中断使能 */
-    mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 10, 1, 1);
+    mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 10, 10, 20);
     mpu_sem = osal_sem_create("mpu_sem", 0, 0);
     if (mpu_task_t == NULL || mpu_sem == NULL)
     {

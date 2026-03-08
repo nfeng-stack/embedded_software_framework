@@ -16,7 +16,8 @@
 #include "elog.h"
 
 /* Traditional main function (used when RTOS is not enabled) */
-
+extern void ai_task_init(void);
+extern void at_cmd_task_init(void);
 void log_strategy(void)
 {
     elog_init();
@@ -28,30 +29,17 @@ void log_strategy(void)
     // elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_ALL);
     elog_start();
 }
-extern void MX_X_CUBE_AI_Init(void);
 int main(void)
 {
     hal_uart1_init();
-    log_strategy();
-    // MX_X_CUBE_AI_Init();
     hal_uart2_init();
+    log_strategy();
+    at_cmd_task_init();
+    // ai_task_init();
     // mpu6050_init_task();
-    osal_task_delay(300);
-    hal_uart2_write("ati\r\n");
-    osal_task_delay(300);
-    uint8_t buffer[70] = {0};
-    uint16_t len = hal_uart2_read(buffer, sizeof(buffer));
-    log_v("%s %d\n", buffer, len);
-    hal_uart2_write("AT+CGSN\r\n");
-    osal_task_delay(300);
-    len = hal_uart2_read(buffer, sizeof(buffer));
-    log_v("%s %d\n", buffer, len);
-
     while (1)
     {
         osal_task_delay(10000);
         log_v("os is runing ...\n");
-        // printf("os is runing\n");
-        log_v("%s %d\n", buffer, len);
     }
 }

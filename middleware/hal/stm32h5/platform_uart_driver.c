@@ -45,7 +45,7 @@ void platform_uart1_init(void)
 // 配置参数（可调整）
 // ========================
 #define RX_DMA_BUFFER_SIZE 256 // DMA 缓冲区大小（建议 2^n）
-#define RING_BUFFER_SIZE 512  // 环形缓冲区总容量（建议 >= 2 * RX_DMA_BUFFER_SIZE）
+#define RING_BUFFER_SIZE 512   // 环形缓冲区总容量（建议 >= 2 * RX_DMA_BUFFER_SIZE）
 
 // ========================
 // 全局变量
@@ -70,6 +70,7 @@ static inline uint8_t ring_is_empty(void)
 
 static inline uint16_t ring_available(void)
 {
+    // log_d("%s ring_head:%d ring_tail:%d\n",__func__,ring_head,ring_tail);
     if (ring_head >= ring_tail)
     {
         return ring_head - ring_tail;
@@ -83,16 +84,17 @@ static inline uint16_t ring_available(void)
 // 将数据写入环形缓冲区（仅在 ISR 中调用，单生产者）
 static void ring_write(const uint8_t *data, uint16_t len)
 {
-    for (uint16_t i = 0; i < len  && !ring_is_full(); i++)
+    for (uint16_t i = 0; i < len && !ring_is_full(); i++)
     {
         ring_buf[ring_head] = data[i];
         ring_head = (ring_head + 1) % RING_BUFFER_SIZE;
     }
-    if(!ring_is_full())
+    if (!ring_is_full())
     {
         ring_buf[ring_head] = '\0';
         ring_head = (ring_head + 1) % RING_BUFFER_SIZE;
     }
+    // log_d("%s ring_head:%d ring_tail:%d", __func__, ring_head, ring_tail);
     // 若满则丢弃多余数据（可改为覆盖策略）
 }
 
@@ -104,7 +106,6 @@ uint16_t platform_uart2_read(uint8_t *buffer, uint16_t max_len)
 
     uint16_t avail = ring_available();
     uint16_t to_read = (avail < max_len) ? avail : max_len;
-
     for (uint16_t i = 0; i < to_read; i++)
     {
         buffer[i] = ring_buf[ring_tail];
@@ -178,7 +179,10 @@ void USART2_IRQHandler(void)
         LL_DMA_SetDestAddress(GPDMA1, LL_DMA_CHANNEL_0, (uint32_t)rx_dma_buffer);
         LL_DMA_SetBlkDataLength(GPDMA1, LL_DMA_CHANNEL_0, sizeof(rx_dma_buffer));
         LL_DMA_EnableChannel(GPDMA1, LL_DMA_CHANNEL_0);
-        ring_write(rx_dma_buffer, len);
+        if (len != 0)
+        {
+            ring_write(rx_dma_buffer, len);
+        }
     }
 }
 void HAL_UART_MspInit(UART_HandleTypeDef *uartHandle)
