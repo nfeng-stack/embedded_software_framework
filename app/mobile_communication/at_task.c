@@ -16,17 +16,24 @@ void at_task(void *param)
     int32_t res = at_check_sim_status_is_ready();
     if (res != 0)
     {
-        log_e("sim status no ready :%d\n",res);
+        log_e("sim status no ready :%d\n", res);
         return;
     }
     log_d("sim status is ready\n");
-    res = at_check_net_status();
-    if(res != 0)
+    res = at_check_sms_status();
+    if (res != 0)
     {
-        log_e("sim net no ready :%d",res);
+        log_e("sim sms no ready :%d\n", res);
         return;
     }
-    log_d("sim net is ready");
+    log_d("sim sms is ready \nmodule can send message\n");
+    res = at_check_net_status();
+    if (res != 0)
+    {
+        log_e("sim net no ready :%d\n", res);
+        return;
+    }
+    log_d("sim net is ready\nmodule can access net\n");
     while (1)
     {
         osal_task_delay(1000);

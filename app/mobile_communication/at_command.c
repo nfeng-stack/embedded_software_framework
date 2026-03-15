@@ -179,7 +179,7 @@ static int at_rsp_wait(const char *expected_end, char *buffer, size_t buf_size, 
 
 /**<at 命令具体实现 */
 #define AT_BUFFER_SIZE 100
-#define AT_RSP_TIMEOUT 2000
+#define AT_RSP_TIMEOUT 400
 
 int32_t at_check_sim_status_is_ready(void)
 {
@@ -209,8 +209,10 @@ int32_t at_check_sim_status_is_ready(void)
     osal_free(buffer);
     return res;
 }
-
-int32_t at_check_net_status(void)
+/**
+ * @brief 检查模块是否可以发送短信
+ */
+int32_t at_check_sms_status(void)
 {
     char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
     if (buffer == NULL)
@@ -247,3 +249,45 @@ int32_t at_check_net_status(void)
     osal_free(buffer);
     return res;
 }
+
+/**
+ * @brief  检查模块是否可以上网
+ */
+
+ int32_t at_check_net_status(void)
+ {
+     char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
+    if (buffer == NULL)
+    {
+        log_e("%s malloc buffer error\n", __func__);
+        return -1;
+    }
+    hal_uart2_write("AT+CGREG?\r\n");
+    int32_t res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
+    if (res != AT_RSP_OK)
+    {
+        osal_free(buffer);
+        log_e("%s at rsp wait error :%d\n", __func__, res);
+        return -1;
+    }
+    char *p = strstr(buffer, "+CGREG:");
+    if (p != NULL)
+    {
+        p = p + strlen("+CGREG: ");
+        char mode = *p++;
+        if (*p++ != ',')
+        {
+            log_e("%s para error\n", __func__);
+            osal_free(buffer);
+            return -1;
+        }
+        char status = *p;
+        if(mode == '0' || status == '1')
+        {
+            res = 0;
+        }
+    }
+    // log_d("%s\n", buffer);
+    osal_free(buffer);
+    return res;
+ }
