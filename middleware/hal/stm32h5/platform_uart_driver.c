@@ -44,8 +44,8 @@ void platform_uart1_init(void)
 // ========================
 // 配置参数（可调整）
 // ========================
-#define RX_DMA_BUFFER_SIZE 256 // DMA 缓冲区大小（建议 2^n）
-#define RING_BUFFER_SIZE 512   // 环形缓冲区总容量（建议 >= 2 * RX_DMA_BUFFER_SIZE）
+#define RX_DMA_BUFFER_SIZE 2048     // DMA 缓冲区大小（建议 2^n）
+#define RING_BUFFER_SIZE (2048 * 2) // 环形缓冲区总容量（建议 >= 2 * RX_DMA_BUFFER_SIZE）
 
 // ========================
 // 全局变量
@@ -94,8 +94,6 @@ static void ring_write(const uint8_t *data, uint16_t len)
         ring_buf[ring_head] = '\0';
         ring_head = (ring_head + 1) % RING_BUFFER_SIZE;
     }
-    // log_d("%s ring_head:%d ring_tail:%d", __func__, ring_head, ring_tail);
-    // 若满则丢弃多余数据（可改为覆盖策略）
 }
 
 // 从环形缓冲区读取最多 max_len 字节（主程序调用）
