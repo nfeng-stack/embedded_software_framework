@@ -7,10 +7,14 @@
 #include "elog.h"
 
 // AT响应状态码
-#define AT_RSP_OK 0        // 成功匹配到标准结束标志（OK/ERROR）
-#define AT_RSP_TIMEOUT -1  // 超时
-#define AT_RSP_OVERFLOW -2 // 缓冲区溢出
-#define AT_RSP_ERROR -3    // 命令执行失败（检测到ERROR）
+#define AT_RSP_OK 0
+#define AT_RSP_TIMEOUT -1
+#define AT_RSP_OVERFLOW -2
+#define AT_RSP_ERROR -3
+
+#define AT_BUFFER_SIZE 2000
+#define AT_CMD_TIMEOUT 10000
+#define AT_HTTP_TIMEOUT 30000
 
 /**
  * @brief 等待AT命令响应，确保在完整响应中匹配结束标志
@@ -18,47 +22,32 @@
  * @param buffer 输出缓冲区
  * @param buf_size 缓冲区大小
  * @param timeout_ms 超时时间（毫秒）
- * @return AT_RSP_OK(0)：命令执行完成（含OK/ERROR）；AT_RSP_ERROR(-3)：命令失败；AT_RSP_TIMEOUT(-1)：超时；AT_RSP_OVERFLOW(-2)：溢出
+ * @return AT_RSP_OK/ERROR/TIMEOUT/OVERFLOW
  */
 static int at_rsp_wait(const char *expected_end, char *buffer, size_t buf_size, uint32_t timeout_ms)
 {
     if (!buffer || buf_size == 0)
-    {
-        log_e("at_rsp_wait: invalid parameters (buffer=%p, size=%zu)", buffer, buf_size);
         return AT_RSP_TIMEOUT;
-    }
-
     memset(buffer, 0, buf_size);
     size_t idx = 0;
     uint32_t start_time = osal_tick_get();
-
-    // 标准结束标志列表
     const char *std_markers[] = {"OK", "ERROR", "+CME ERROR", NULL};
 
     while (1)
     {
-        // 超时检查
         if (osal_tick_get() - start_time > timeout_ms)
         {
-            log_w("at_rsp_wait: timeout after %d ms. Received: %.50s...", timeout_ms, buffer);
+            log_w("at_rsp_wait timeout");
             return AT_RSP_TIMEOUT;
         }
-
-        // 读取一个字符
         uint8_t ch;
         if (hal_uart2_read(&ch, 1) != 1)
         {
             osal_task_delay(1);
             continue;
         }
-
-        // 过滤非法控制字符（保留 \r \n \t）
         if (ch < 32 && ch != '\r' && ch != '\n' && ch != '\t')
-        {
             continue;
-        }
-
-        // 存入缓冲区
         if (idx < buf_size - 1)
         {
             buffer[idx++] = (char)ch;
@@ -66,431 +55,376 @@ static int at_rsp_wait(const char *expected_end, char *buffer, size_t buf_size, 
         }
         else
         {
-            log_e("at_rsp_wait: buffer overflow at %zu/%zu", idx, buf_size);
+            log_e("buffer overflow");
             return AT_RSP_OVERFLOW;
         }
 
-        // ========== 1. 检查标准结束标志（OK/ERROR/+CME ERROR） ==========
-        bool is_standard_match = false;
-        for (int i = 0; std_markers[i] != NULL; i++)
+        // 检查标准结束标志
+        for (int i = 0; std_markers[i]; i++)
         {
-            size_t marker_len = strlen(std_markers[i]);
-            if (idx >= marker_len && strncmp(buffer + idx - marker_len, std_markers[i], marker_len) == 0)
+            size_t len = strlen(std_markers[i]);
+            if (idx >= len && strncmp(buffer + idx - len, std_markers[i], len) == 0)
             {
-                // 确保在行首
-                bool at_line_start = (idx == marker_len) || (buffer[idx - marker_len - 1] == '\r' || buffer[idx - marker_len - 1] == '\n');
-                // 确保后面是换行、空格或字符串结束
-                bool next_ok = (idx >= buf_size - 1) || (buffer[idx] == '\r' || buffer[idx] == '\n' || buffer[idx] == ' ' || buffer[idx] == '\0');
-                if (at_line_start && next_ok)
+                bool line_start = (idx == len) || (buffer[idx - len - 1] == '\r' || buffer[idx - len - 1] == '\n');
+                if (line_start)
                 {
-                    is_standard_match = true;
-                    break;
+                    if (strstr(buffer, "ERROR") || strstr(buffer, "+CME ERROR"))
+                        return AT_RSP_ERROR;
+                    return AT_RSP_OK;
                 }
             }
         }
-        if (is_standard_match)
-        {
-            // 检查是否有错误
-            if (strstr(buffer, "ERROR") != NULL || strstr(buffer, "+CME ERROR") != NULL)
-            {
-                return AT_RSP_ERROR;
-            }
-            return AT_RSP_OK;
-        }
 
-        // ========== 2. 检查用户指定的结束字符串（非标准标志） ==========
+        // 检查用户指定结束字符串
         if (expected_end && *expected_end)
         {
             size_t exp_len = strlen(expected_end);
             if (idx >= exp_len && strncmp(buffer + idx - exp_len, expected_end, exp_len) == 0)
             {
-                // 确保该字符串在行首
-                bool at_line_start = (idx == exp_len) || (buffer[idx - exp_len - 1] == '\r' || buffer[idx - exp_len - 1] == '\n');
-                if (at_line_start)
+                bool line_start = (idx == exp_len) || (buffer[idx - exp_len - 1] == '\r' || buffer[idx - exp_len - 1] == '\n');
+                if (line_start)
                 {
-                    // 继续读取直到行尾（'\n'）
+                    // 继续读到行尾
                     while (1)
                     {
-                        // 超时检查
                         if (osal_tick_get() - start_time > timeout_ms)
-                        {
-                            log_w("at_rsp_wait: timeout while reading to line end");
                             return AT_RSP_TIMEOUT;
-                        }
-                        uint8_t ch2;
-                        if (hal_uart2_read(&ch2, 1) != 1)
+                        if (hal_uart2_read(&ch, 1) != 1)
                         {
                             osal_task_delay(1);
                             continue;
                         }
-                        // 存入缓冲区
                         if (idx < buf_size - 1)
                         {
-                            buffer[idx++] = (char)ch2;
+                            buffer[idx++] = (char)ch;
                             buffer[idx] = '\0';
                         }
                         else
-                        {
-                            log_e("at_rsp_wait: buffer overflow while reading line");
                             return AT_RSP_OVERFLOW;
-                        }
-                        // 遇到换行符则结束读取
-                        if (ch2 == '\n')
-                        {
-                            // 检查整行中是否包含错误
-                            if (strstr(buffer, "ERROR") != NULL || strstr(buffer, "+CME ERROR") != NULL)
-                            {
-                                return AT_RSP_ERROR;
-                            }
-                            return AT_RSP_OK;
-                        }
+                        if (ch == '\n')
+                            break;
                     }
+                    if (strstr(buffer, "ERROR") || strstr(buffer, "+CME ERROR"))
+                        return AT_RSP_ERROR;
+                    return AT_RSP_OK;
                 }
             }
         }
     }
 }
-/**<at 命令具体实现 */
-#define AT_BUFFER_SIZE 500
-#define AT_RSP_TIMEOUT 400
 
-int32_t at_check_sim_status_is_ready(void)
-{
-    char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
-    if (buffer == NULL)
-    {
-        log_e("%s malloc buffer error\n", __func__);
-        return -1;
-    }
-    hal_uart2_write("AT+CPIN?\r\n");
-    int32_t res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
-    if (res != AT_RSP_OK)
-    {
-        osal_free(buffer);
-        log_e("%s at rsp wait error :%d", __func__, res);
-        return -1;
-    }
-    if (strstr(buffer, "READY") != NULL)
-    {
-        res = 0;
-    }
-    else if (strstr(buffer, "SIM PIN") != NULL)
-    {
-        res = -1;
-    }
-    // log_d("%s\n",buffer);
-    osal_free(buffer);
-    return res;
-}
-/**
- * @brief 检查模块是否可以发送短信
- */
-int32_t at_check_sms_status(void)
-{
-    char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
-    if (buffer == NULL)
-    {
-        log_e("%s malloc buffer error\n", __func__);
-        return -1;
-    }
-    hal_uart2_write("AT+CREG?\r\n");
-    int32_t res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
-    if (res != AT_RSP_OK)
-    {
-        osal_free(buffer);
-        log_e("%s at rsp wait error :%d", __func__, res);
-        return -1;
-    }
-    char *p = strstr(buffer, "+CREG:");
-    if (p != NULL)
-    {
-        p = p + strlen("+CREG: ");
-        char mode = *p++;
-        if (*p++ != ',')
-        {
-            log_e("%s para error", __func__);
-            osal_free(buffer);
-            return -1;
-        }
-        char status = *p;
-        if (mode == '0' || status == '1')
-        {
-            res = 0;
-        }
-    }
-    // log_d("%s\n", buffer);
-    osal_free(buffer);
-    return res;
-}
-
-/**
- * @brief  检查模块是否可以上网
- */
-
-int32_t at_check_net_status(void)
-{
-    char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
-    if (buffer == NULL)
-    {
-        log_e("%s malloc buffer error\n", __func__);
-        return -1;
-    }
-    hal_uart2_write("AT+CGREG?\r\n");
-    int32_t res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
-    if (res != AT_RSP_OK)
-    {
-        osal_free(buffer);
-        log_e("%s at rsp wait error :%d\n", __func__, res);
-        return -1;
-    }
-    char *p = strstr(buffer, "+CGREG:");
-    if (p != NULL)
-    {
-        p = p + strlen("+CGREG: ");
-        char mode = *p++;
-        if (*p++ != ',')
-        {
-            log_e("%s para error\n", __func__);
-            osal_free(buffer);
-            return -1;
-        }
-        char status = *p;
-        if (mode == '0' || status == '1')
-        {
-            res = 0;
-        }
-    }
-    // log_d("%s\n", buffer);
-    osal_free(buffer);
-    return res;
-}
-
-#define UNICOM_APN "3gnet" // 联通通用APN，如果是特殊专网卡可能需要改为 "cuiot" 或 "uninet"
-#define PDP_CID 1          // 使用上下文ID 1
-
-/**
- * @brief 辅助函数：检查字符串中是否包含子串
- */
-static int contains_str(const char *haystack, const char *needle)
-{
-    if (haystack == NULL || needle == NULL)
-        return 0;
-    return (strstr(haystack, needle) != NULL) ? 1 : 0;
-}
-
-/**
- * @brief 设置并激活联通物联卡的 APN
- *
- * 流程:
- * 1. 查询当前 APN 配置
- * 2. 如果 CID 1 不是 "3gnet"，则重新配置
- * 3. 激活 PDP 上下文
- * 4. 验证是否获取到 IP
- *
- * @return 0: 成功 (已配置且激活), -1: 失败
- */
-int32_t at_set_apn(void)
-{
-    char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
-    if (buffer == NULL)
-    {
-        log_e("%s malloc buffer error\n", __func__);
-        return -1;
-    }
-
-    // 清空缓冲区，防止脏数据
-    memset(buffer, 0, AT_BUFFER_SIZE);
-
-    log_i("[%s] Start checking APN configuration...", __func__);
-
-    // ---------------------------------------------------------
-    // 第一步：查询当前 APN 配置
-    // ---------------------------------------------------------
-    hal_uart2_write("AT+CGDCONT?\r\n");
-    // 注意：这里假设 at_rsp_wait 会将响应存入 buffer，并以 \0 结尾
-    // 如果你的驱动需要传入期望的结束符，请自行调整
-    int32_t res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
-
-    if (res != AT_RSP_OK)
-    {
-        log_e("%s Query CGDCONT failed: %d\n", __func__, res);
-        osal_free(buffer);
-        return -1;
-    }
-
-    log_i("%s Query Result:\n%s", __func__, buffer);
-
-    // ---------------------------------------------------------
-    // 第二步：智能判断是否需要配置
-    // 我们寻找是否存在: +CGDCONT: 1,"IP","3gnet"
-    // 为了容错，只要看到 CID 1 和 3gnet 在一起即可
-    // ---------------------------------------------------------
-    char target_pattern[64];
-    sprintf(target_pattern, "+CGDCONT: %d,", PDP_CID);
-
-    int need_config = 1; // 默认假设需要配置
-
-    // 简单的解析逻辑：
-    // 1. 找到对应 CID 的行
-    // 2. 检查该行是否包含 "3gnet"
-    char *line_start = strstr(buffer, target_pattern);
-    if (line_start != NULL)
-    {
-        // 在这一行里找 APN 名称
-        // 格式通常是 +CGDCONT: 1,"IP","3gnet",...
-        // 我们检查后面是否紧跟 "3gnet"
-        if (strstr(line_start, UNICOM_APN) != NULL)
-        {
-            log_i("[%s] APN already configured correctly for CID %d (%s). Skip setting.",
-                  __func__, PDP_CID, UNICOM_APN);
-            need_config = 0;
-        }
-        else
-        {
-            log_w("[%s] CID %d exists but APN is incorrect. Will reconfigure.", __func__, PDP_CID);
-        }
-    }
-    else
-    {
-        log_w("[%s] CID %d not found. Will create new configuration.", __func__, PDP_CID);
-    }
-
-    // ---------------------------------------------------------
-    // 第三步：如果需要，执行配置命令
-    // ---------------------------------------------------------
-    if (need_config)
-    {
-        log_i("[%s] Setting APN: AT+CGDCONT=%d,\"IP\",\"%s\"", __func__, PDP_CID, UNICOM_APN);
-
-        char cmd_buf[64];
-        sprintf(cmd_buf, "AT+CGDCONT=%d,\"IP\",\"%s\"\r\n", PDP_CID, UNICOM_APN);
-
-        hal_uart2_write(cmd_buf);
-        res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
-
-        if (res != AT_RSP_OK)
-        {
-            log_e("%s Set CGDCONT failed: %d\n", __func__, res);
-            osal_free(buffer);
-            return -1;
-        }
-        log_i("[%s] APN Set successfully.", __func__);
-
-        // 可选：部分模块需要保存配置到 Flash (如 SIM800系列用 AT+CSAS)
-        // 大多数 4G Cat1 模块 (如 EC200U, L610) 自动保存，此处省略以防兼容性问题
-    }
-
-    // ---------------------------------------------------------
-    // 第四步：激活 PDP 上下文 (拨号)
-    // ---------------------------------------------------------
-    log_i("[%s] Activating PDP Context (CID %d)...", __func__, PDP_CID);
-    memset(buffer, 0, AT_BUFFER_SIZE);
-
-    char act_cmd[32];
-    sprintf(act_cmd, "AT+CGACT=1,%d\r\n", PDP_CID);
-    hal_uart2_write(act_cmd);
-
-    // 激活可能需要更长时间，特别是信号弱时，可适当延长超时
-    res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT * 2);
-
-    if (res != AT_RSP_OK)
-    {
-        log_e("%s Activate CGACT failed: %d. Response: %s", __func__, res, buffer);
-        // 激活失败不一定代表彻底失败，可能是网络拥塞，但此处先返回错误
-        osal_free(buffer);
-        return -1;
-    }
-    log_i("[%s] PDP Context Activated.", __func__);
-
-    // ---------------------------------------------------------
-    // 第五步：验证是否获取到 IP 地址
-    // ---------------------------------------------------------
-    log_i("[%s] Checking IP address...", __func__);
-    memset(buffer, 0, AT_BUFFER_SIZE);
-
-    char ip_cmd[32];
-    sprintf(ip_cmd, "AT+CGPADDR=%d\r\n", PDP_CID);
-    hal_uart2_write(ip_cmd);
-
-    res = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_RSP_TIMEOUT);
-    if (res == AT_RSP_OK)
-    {
-        // 检查返回中是否有 IP 地址 (简单判断是否包含数字和点)
-        // 正常返回: +CGPADDR: 1,"10.156.23.101"
-        if (strstr(buffer, "+CGPADDR") != NULL && strstr(buffer, ".") != NULL)
-        {
-            log_i("[%s] Network Ready! Got IP: %s", __func__, buffer);
-            osal_free(buffer);
-            return 0; // 成功
-        }
-        else
-        {
-            log_w("[%s] Activated but no valid IP returned yet: %s", __func__, buffer);
-            // 有时激活后需要稍等片刻再查 IP，这里视情况可重试或直接返回
-        }
-    }
-
-    log_e("%s Final verification failed.", __func__);
-    osal_free(buffer);
-    return -1;
-}
-
-#define AT_BUFFER_SIZE 2000
-
-/* 超时定义（毫秒） */
-#define AT_CMD_TIMEOUT 10000  /* AT命令基本超时 */
-#define AT_RSP_TIMEOUT 30000  /* 响应等待超时 */
-#define AT_HTTP_TIMEOUT 30000 /* HTTP操作超时 */
-
-/**
- * @brief 发送AT命令并等待响应
- * @param cmd         AT命令（含\r\n）
- * @param rsp_buf     响应缓冲区
- * @param buf_size    缓冲区大小
- * @param timeout     超时时间（毫秒）
- * @return AT_RSP_OK/ERROR/TIMEOUT
- */
 static int at_send_cmd(const char *cmd, char *rsp_buf, int buf_size, int timeout)
 {
     hal_uart2_write(cmd);
     return at_rsp_wait(NULL, rsp_buf, buf_size, timeout);
 }
 
-/**
- * @brief 发送AT命令并检查返回OK
- * @param cmd AT命令（含\r\n）
- * @return 0成功，-1失败
- */
 static int at_send_and_check_ok(const char *cmd)
 {
     char buffer[256];
     int ret = at_send_cmd(cmd, buffer, sizeof(buffer), AT_CMD_TIMEOUT);
-    if (ret != AT_RSP_OK)
-        return -1;
-    if (strstr(buffer, "OK") == NULL)
-        return -1;
-    return 0;
+    return (ret == AT_RSP_OK && strstr(buffer, "OK")) ? 0 : -1;
 }
 
-/**
- * @brief 发送AT命令并等待特定字符串
- * @param cmd         AT命令（含\r\n）
- * @param expected    期望出现的字符串（如"CONNECT"）
- * @param rsp_buf     响应缓冲区
- * @param buf_size    缓冲区大小
- * @param timeout     超时时间（毫秒）
- * @return AT_RSP_OK/ERROR/TIMEOUT
- */
 static int at_send_and_wait_for(const char *cmd, const char *expected, char *rsp_buf, int buf_size, int timeout)
 {
     hal_uart2_write(cmd);
     return at_rsp_wait(expected, rsp_buf, buf_size, timeout);
 }
 
+// ==================== 网络初始化 ====================
 /**
- * @brief 执行完整的HTTP GET请求
+ * @brief 初始化网络连接（SIM卡、注册、PDP激活）
  * @return 0成功，-1失败
  */
+int at_module_config(void)
+{
+    char buffer[256];
+    int ret;
+
+    // 1. 测试AT通信
+    if (at_send_and_check_ok("AT\r\n") != 0)
+    {
+        log_e("AT communication failed");
+        return -1;
+    }
+
+    // 2. 检查SIM卡
+    ret = at_send_cmd("AT+CPIN?\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "+CPIN: READY") == NULL)
+    {
+        log_e("SIM not ready");
+        return -1;
+    }
+
+    // 3. 查询信号强度
+    ret = at_send_cmd("AT+CSQ\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "+CSQ:") == NULL)
+    {
+        log_e("CSQ query failed");
+        return -1;
+    }
+
+    // 4. 检查网络注册
+    ret = at_send_cmd("AT+CGREG?\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("CGREG query failed");
+        return -1;
+    }
+    char *p = strstr(buffer, "+CGREG:");
+    if (!p)
+        return -1;
+    p += 8; // skip "+CGREG: "
+    if (p[0] != '0' || p[2] != '1')
+    {
+        log_e("Network not registered, mode=%c status=%c", p[0], p[2]);
+        return -1;
+    }
+
+    // 5. 检查PS域附着
+    ret = at_send_cmd("AT+CGATT?\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "+CGATT: 1") == NULL)
+    {
+        log_e("PS not attached");
+        return -1;
+    }
+
+    // 6. 配置PDP上下文（使用联通APN，可根据实际修改）
+    if (at_send_and_check_ok("AT+QICSGP=1,1,\"UNINET\",\"\",\"\",1\r\n") != 0)
+    {
+        log_e("PDP config failed");
+        return -1;
+    }
+
+    // 7. 激活PDP（先查询是否已激活）
+    ret = at_send_cmd("AT+QIACT?\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
+    if (ret == AT_RSP_OK && strstr(buffer, "+QIACT: 1,1,1,"))
+    {
+        log_i("PDP already active");
+    }
+    else
+    {
+        if (at_send_and_check_ok("AT+QIACT=1\r\n") != 0)
+        {
+            log_e("PDP activation failed");
+            return -1;
+        }
+    }
+
+    // 8. 获取IP（调试）
+    ret = at_send_cmd("AT+QIACT?\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
+    if (ret == AT_RSP_OK && strstr(buffer, "+QIACT:"))
+    {
+        log_d("IP obtained: %s", buffer);
+    }
+
+    return 0;
+}
+
+// ==================== HTTP(S) 辅助函数 ====================
+static int parse_url(const char *url, char *host, size_t host_size, char *path, size_t path_size)
+{
+    const char *p = url;
+    if (strncmp(p, "https://", 8) == 0)
+    {
+        p += 8;
+    }
+    else
+    {
+        log_e("Only HTTPS supported");
+        return -1;
+    }
+    const char *host_start = p;
+    while (*p && *p != '/')
+        p++;
+    size_t host_len = p - host_start;
+    if (host_len >= host_size)
+        return -1;
+    memcpy(host, host_start, host_len);
+    host[host_len] = '\0';
+
+    if (*p == '/')
+    {
+        strncpy(path, p, path_size - 1);
+        path[path_size - 1] = '\0';
+    }
+    else
+    {
+        strcpy(path, "/");
+    }
+    return 0;
+}
+
+static size_t build_http_request(const char *host, const char *path, char *buffer, size_t buf_size)
+{
+    const char *fmt = "GET %s HTTP/1.1\r\n"
+                      "Host: %s\r\n"
+                      "\r\n";
+    int len = snprintf(buffer, buf_size, fmt, path, host);
+    if (len < 0 || (size_t)len >= buf_size)
+        return 0;
+    return (size_t)len;
+}
+
+// ==================== HTTPS GET 核心函数 ====================
+/**
+ * @brief 执行HTTPS GET请求，自动配置SSL/TLS
+ * @param url         完整URL（必须为https://开头）
+ * @param response_buf 接收响应数据的缓冲区（仅HTTP正文，不含头）
+ * @param buf_size     缓冲区大小
+ * @return 0成功，-1失败
+ */
+int https_get(const char *url, char *response_buf, size_t buf_size)
+{
+    if (!url || !response_buf || buf_size == 0)
+    {
+        log_e("Invalid parameters");
+        return -1;
+    }
+
+    char host[128] = {0}, path[256] = {0};
+    if (parse_url(url, host, sizeof(host), path, sizeof(path)) != 0)
+    {
+        log_e("URL parse failed");
+        return -1;
+    }
+
+    char buffer[AT_BUFFER_SIZE];
+    int ret;
+
+    // 1. 配置HTTP参数
+    if (at_send_and_check_ok("AT+QHTTPCFG=\"contextid\",1\r\n") != 0 ||
+        at_send_and_check_ok("AT+QHTTPCFG=\"sslctxid\",1\r\n") != 0 ||
+        at_send_and_check_ok("AT+QHTTPCFG=\"requestheader\",1\r\n") != 0 ||
+        at_send_and_check_ok("AT+QHTTPCFG=\"responseheader\",1\r\n") != 0)
+    {
+        log_e("HTTP config failed");
+        return -1;
+    }
+
+    // 2. 自动配置SSL/TLS（采用最兼容方式：TLS 1.2 + 所有加密套件 + 无证书验证）
+    if (at_send_and_check_ok("AT+QSSLCFG=\"sslversion\",1,3\r\n") != 0 ||       // TLS 1.2
+        at_send_and_check_ok("AT+QSSLCFG=\"ciphersuite\",1,0xFFFF\r\n") != 0 || // 所有套件
+        at_send_and_check_ok("AT+QSSLCFG=\"seclevel\",1,0\r\n") != 0)
+    { // 无证书验证
+        log_e("SSL config failed");
+        return -1;
+    }
+
+    // 3. 设置URL
+    size_t url_len = strlen(url);
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "AT+QHTTPURL=%zu,30000\r\n", url_len);
+    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("CONNECT not received");
+        return -1;
+    }
+    hal_uart2_write(url);
+    hal_uart2_write("\r\n");
+    ret = at_rsp_wait(NULL, buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "OK") == NULL)
+    {
+        log_e("URL not accepted");
+        return -1;
+    }
+
+    // 4. 构造HTTP GET请求头
+    char http_header[512];
+    size_t header_len = build_http_request(host, path, http_header, sizeof(http_header));
+    if (header_len == 0)
+        return -1;
+
+    snprintf(cmd, sizeof(cmd), "AT+QHTTPGET=80,%zu\r\n", header_len);
+    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+        return -1;
+    hal_uart2_write(http_header);
+    ret = at_rsp_wait(NULL, buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "OK") == NULL)
+    {
+        log_e("Request not acknowledged");
+        return -1;
+    }
+
+    // 5. 等待响应状态URC
+    ret = at_rsp_wait("+QHTTPGET:", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+        return -1;
+
+    // 定位 "+QHTTPGET:" 字符串
+    char *p = strstr(buffer, "+QHTTPGET:");
+    if (!p)
+    {
+        log_e("+QHTTPGET not found in response");
+        return -1;
+    }
+
+    int err_code = -1, http_status = -1, data_len = -1;
+    int matched = sscanf(p, "+QHTTPGET: %d,%d,%d", &err_code, &http_status, &data_len);
+    if (matched < 2)
+    {
+        log_e("Parse +QHTTPGET failed, raw: %s", p);
+        return -1;
+    }
+    if (err_code != 0)
+    {
+        log_e("HTTP error: err=%d", err_code);
+        return -1;
+    }
+    if (http_status != 200)
+    {
+        log_e("HTTP status: %d", http_status);
+        return -1;
+    }
+
+    // 6. 读取响应数据
+    hal_uart2_write("AT+QHTTPREAD=80\r\n");
+    ret = at_rsp_wait("+QHTTPREAD:", response_buf, buf_size, AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("at read rsp error\n%s\n", response_buf);
+        return -1;
+    }
+    // log_e("rsp:\n%s\n",response_buf);
+    // 7. 提取实际HTTP正文
+    char *p1 = strstr(response_buf, "CONNECT");
+    if (!p1)
+    {
+        log_e("CONNECT not found");
+        return -1;
+    }
+    p1 += strlen("CONNECT");
+
+    // 直接查找第一个 '{' 作为 JSON 开始
+    char *body_start = strchr(p1, '{');
+    if (!body_start)
+    {
+        log_e("JSON start not found");
+        return -1;
+    }
+
+    if (data_len <= 0)
+    {
+        log_e("Invalid data_len");
+        return -1;
+    }
+    if ((size_t)data_len > buf_size)
+    {
+        log_e("Body too large: %d > %zu", data_len, buf_size);
+        return -1;
+    }
+    // 复制 JSON 正文
+    memmove(response_buf, body_start, data_len);
+    response_buf[data_len] = '\0';
+    // log_e("copy rsp:\n%s\n",response_buf);
+    log_e("HTTPS GET success, received %d bytes,copy %d\n", data_len,strlen(response_buf));
+    return 0;
+}
+
+// ==================== 以下为原始测试函数，未改动 ====================
 int at_do_http_request(void)
 {
     char buffer[AT_BUFFER_SIZE];

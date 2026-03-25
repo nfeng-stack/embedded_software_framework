@@ -53,7 +53,7 @@ ElogErrCode elog_port_init(void) {
     
     osal_sem_init(&output_notice, "elog async", 0, 0x01);
 
-    async_thread = osal_task_create("elog_async", async_output, NULL, 1024, RT_THREAD_PRIORITY_MAX - 1, 10);
+    async_thread = osal_task_create("elog_async", async_output, NULL, 1024 * 4, RT_THREAD_PRIORITY_MAX - 1, 10);
     if (async_thread) {
         osal_task_startup(async_thread);
     }

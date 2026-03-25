@@ -3,9 +3,7 @@
 
 /**< 定义at命令所需要的函数 */
 
-int32_t at_check_sim_status_is_ready(void);
-int32_t at_check_sms_status(void);
- int32_t at_check_net_status(void);
-int32_t at_set_apn(void);
+int at_module_config(void);
+int https_get(const char *url, char *response_buf, size_t buf_size);
 int at_do_http_request(void);
 #endif

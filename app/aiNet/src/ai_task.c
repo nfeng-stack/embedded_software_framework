@@ -25,7 +25,7 @@ void ai_task(void *param)
 
 void ai_task_init(void)
 {
-    MX_X_CUBE_AI_Init();
+    // MX_X_CUBE_AI_Init();
     ai_task_t = osal_task_create("aitask", ai_task, NULL, 1024 * 2, 10, 20);
     ai_sem = osal_sem_create("ai_sem", 0, 0);
     if (ai_task_t == NULL || ai_sem == NULL)

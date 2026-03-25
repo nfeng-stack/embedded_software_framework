@@ -17,7 +17,7 @@
  * the RT_HEAP_SIZE max value = (sram size - ZI size), 1024 means 1024 bytes
  * For dual-heap architecture: RT-Thread heap is 576KB in dedicated section
  */
-#define RT_HEAP_SIZE (300 * 1024) /* 576KB = 0x90000 bytes */
+#define RT_HEAP_SIZE (400 * 1024) /* 576KB = 0x90000 bytes */
 
 /* Place RT-Thread heap array in dedicated linker section */
 __attribute__((section(".rt_heap_section"), aligned(8))) static rt_uint8_t rt_heap[RT_HEAP_SIZE];
