@@ -65,7 +65,7 @@ static int at_rsp_wait(const char *expected_end, char *buffer, size_t buf_size, 
             size_t len = strlen(std_markers[i]);
             if (idx >= len && strncmp(buffer + idx - len, std_markers[i], len) == 0)
             {
-                bool line_start = (idx == len) || (buffer[idx - len - 1] == '\r' || buffer[idx - len - 1] == '\n');
+                bool line_start = (idx == len) || (idx > len && (buffer[idx - len - 1] == '\r' || buffer[idx - len - 1] == '\n'));
                 if (line_start)
                 {
                     if (strstr(buffer, "ERROR") || strstr(buffer, "+CME ERROR"))
@@ -81,7 +81,7 @@ static int at_rsp_wait(const char *expected_end, char *buffer, size_t buf_size, 
             size_t exp_len = strlen(expected_end);
             if (idx >= exp_len && strncmp(buffer + idx - exp_len, expected_end, exp_len) == 0)
             {
-                bool line_start = (idx == exp_len) || (buffer[idx - exp_len - 1] == '\r' || buffer[idx - exp_len - 1] == '\n');
+                bool line_start = (idx == exp_len) || (idx > exp_len && (buffer[idx - exp_len - 1] == '\r' || buffer[idx - exp_len - 1] == '\n'));
                 if (line_start)
                 {
                     // 继续读到行尾
@@ -121,9 +121,13 @@ static int at_send_cmd(const char *cmd, char *rsp_buf, int buf_size, int timeout
 
 static int at_send_and_check_ok(const char *cmd)
 {
-    char buffer[256];
-    int ret = at_send_cmd(cmd, buffer, sizeof(buffer), AT_CMD_TIMEOUT);
-    return (ret == AT_RSP_OK && strstr(buffer, "OK")) ? 0 : -1;
+    char *buffer = (char *)osal_malloc(256);
+    if (!buffer)
+        return -1;
+    int ret = at_send_cmd(cmd, buffer, 256, AT_CMD_TIMEOUT);
+    int result = (ret == AT_RSP_OK && strstr(buffer, "OK")) ? 0 : -1;
+    osal_free(buffer);
+    return result;
 }
 
 static int at_send_and_wait_for(const char *cmd, const char *expected, char *rsp_buf, int buf_size, int timeout)
@@ -225,6 +229,9 @@ int at_module_config(void)
 // ==================== HTTP(S) 辅助函数 ====================
 static int parse_url(const char *url, char *host, size_t host_size, char *path, size_t path_size)
 {
+    if (!url || !host || host_size == 0 || !path || path_size == 0)
+        return -1;
+
     const char *p = url;
     if (strncmp(p, "https://", 8) == 0)
     {
@@ -239,19 +246,29 @@ static int parse_url(const char *url, char *host, size_t host_size, char *path, 
     while (*p && *p != '/')
         p++;
     size_t host_len = p - host_start;
-    if (host_len >= host_size)
+    if (host_len == 0 || host_len >= host_size)
         return -1;
     memcpy(host, host_start, host_len);
     host[host_len] = '\0';
 
     if (*p == '/')
     {
-        strncpy(path, p, path_size - 1);
-        path[path_size - 1] = '\0';
+        size_t path_len = strlen(p);
+        size_t copy_len = (path_len < path_size - 1) ? path_len : (path_size - 1);
+        memcpy(path, p, copy_len);
+        path[copy_len] = '\0';
     }
     else
     {
-        strcpy(path, "/");
+        if (path_size > 1)
+        {
+            path[0] = '/';
+            path[1] = '\0';
+        }
+        else
+        {
+            return -1;
+        }
     }
     return 0;
 }
@@ -283,83 +300,103 @@ int https_get(const char *url, char *response_buf, size_t buf_size)
         return -1;
     }
 
-    char host[128] = {0}, path[256] = {0};
-    if (parse_url(url, host, sizeof(host), path, sizeof(path)) != 0)
+    char *host = (char *)osal_malloc(128);
+    char *path = (char *)osal_malloc(256);
+    char *buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
+    char *cmd = (char *)osal_malloc(64);
+    char *http_header = (char *)osal_malloc(512);
+
+    if (!host || !path || !buffer || !cmd || !http_header)
     {
-        log_e("URL parse failed");
+        log_e("Memory allocation failed");
+        if (host) osal_free(host);
+        if (path) osal_free(path);
+        if (buffer) osal_free(buffer);
+        if (cmd) osal_free(cmd);
+        if (http_header) osal_free(http_header);
         return -1;
     }
 
-    char buffer[AT_BUFFER_SIZE];
-    int ret;
+    memset(host, 0, 128);
+    memset(path, 0, 256);
 
-    // 1. 配置HTTP参数
+    if (parse_url(url, host, 128, path, 256) != 0)
+    {
+        log_e("URL parse failed");
+        goto cleanup;
+    }
+
+    int ret = -1;
+
     if (at_send_and_check_ok("AT+QHTTPCFG=\"contextid\",1\r\n") != 0 ||
         at_send_and_check_ok("AT+QHTTPCFG=\"sslctxid\",1\r\n") != 0 ||
         at_send_and_check_ok("AT+QHTTPCFG=\"requestheader\",1\r\n") != 0 ||
         at_send_and_check_ok("AT+QHTTPCFG=\"responseheader\",1\r\n") != 0)
     {
         log_e("HTTP config failed");
-        return -1;
+        goto cleanup;
     }
 
-    // 2. 自动配置SSL/TLS（采用最兼容方式：TLS 1.2 + 所有加密套件 + 无证书验证）
-    if (at_send_and_check_ok("AT+QSSLCFG=\"sslversion\",1,3\r\n") != 0 ||       // TLS 1.2
-        at_send_and_check_ok("AT+QSSLCFG=\"ciphersuite\",1,0xFFFF\r\n") != 0 || // 所有套件
+    if (at_send_and_check_ok("AT+QSSLCFG=\"sslversion\",1,3\r\n") != 0 ||
+        at_send_and_check_ok("AT+QSSLCFG=\"ciphersuite\",1,0xFFFF\r\n") != 0 ||
         at_send_and_check_ok("AT+QSSLCFG=\"seclevel\",1,0\r\n") != 0)
-    { // 无证书验证
+    {
         log_e("SSL config failed");
-        return -1;
+        goto cleanup;
     }
 
-    // 3. 设置URL
     size_t url_len = strlen(url);
-    char cmd[64];
-    snprintf(cmd, sizeof(cmd), "AT+QHTTPURL=%zu,30000\r\n", url_len);
-    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    snprintf(cmd, 64, "AT+QHTTPURL=%zu,30000\r\n", url_len);
+    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, AT_BUFFER_SIZE, AT_HTTP_TIMEOUT);
     if (ret != AT_RSP_OK)
     {
         log_e("CONNECT not received");
-        return -1;
+        goto cleanup;
     }
     hal_uart2_write(url);
     hal_uart2_write("\r\n");
-    ret = at_rsp_wait(NULL, buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    ret = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_HTTP_TIMEOUT);
     if (ret != AT_RSP_OK || strstr(buffer, "OK") == NULL)
     {
         log_e("URL not accepted");
-        return -1;
+        goto cleanup;
     }
 
-    // 4. 构造HTTP GET请求头
-    char http_header[512];
-    size_t header_len = build_http_request(host, path, http_header, sizeof(http_header));
+    size_t header_len = build_http_request(host, path, http_header, 512);
     if (header_len == 0)
-        return -1;
+    {
+        log_e("Build HTTP request failed");
+        goto cleanup;
+    }
 
-    snprintf(cmd, sizeof(cmd), "AT+QHTTPGET=80,%zu\r\n", header_len);
-    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    snprintf(cmd, 64, "AT+QHTTPGET=80,%zu\r\n", header_len);
+    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, AT_BUFFER_SIZE, AT_HTTP_TIMEOUT);
     if (ret != AT_RSP_OK)
-        return -1;
+    {
+        log_e("QHTTPGET CONNECT failed");
+        goto cleanup;
+    }
     hal_uart2_write(http_header);
-    ret = at_rsp_wait(NULL, buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    ret = at_rsp_wait(NULL, buffer, AT_BUFFER_SIZE, AT_HTTP_TIMEOUT);
     if (ret != AT_RSP_OK || strstr(buffer, "OK") == NULL)
     {
         log_e("Request not acknowledged");
-        return -1;
+        goto cleanup;
     }
 
-    // 5. 等待响应状态URC
-    ret = at_rsp_wait("+QHTTPGET:", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    ret = at_rsp_wait("+QHTTPGET:", buffer, AT_BUFFER_SIZE, AT_HTTP_TIMEOUT);
     if (ret != AT_RSP_OK)
-        return -1;
+    {
+        log_e("QHTTPGET URC failed");
+        goto cleanup;
+    }
 
-    // 定位 "+QHTTPGET:" 字符串
     char *p = strstr(buffer, "+QHTTPGET:");
     if (!p)
     {
         log_e("+QHTTPGET not found in response");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
 
     int err_code = -1, http_status = -1, data_len = -1;
@@ -367,61 +404,73 @@ int https_get(const char *url, char *response_buf, size_t buf_size)
     if (matched < 2)
     {
         log_e("Parse +QHTTPGET failed, raw: %s", p);
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
     if (err_code != 0)
     {
         log_e("HTTP error: err=%d", err_code);
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
     if (http_status != 200)
     {
         log_e("HTTP status: %d", http_status);
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
 
-    // 6. 读取响应数据
     hal_uart2_write("AT+QHTTPREAD=80\r\n");
     ret = at_rsp_wait("+QHTTPREAD:", response_buf, buf_size, AT_HTTP_TIMEOUT);
     if (ret != AT_RSP_OK)
     {
         log_e("at read rsp error\n%s\n", response_buf);
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
-    // log_e("rsp:\n%s\n",response_buf);
-    // 7. 提取实际HTTP正文
+
     char *p1 = strstr(response_buf, "CONNECT");
     if (!p1)
     {
         log_e("CONNECT not found");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
     p1 += strlen("CONNECT");
 
-    // 直接查找第一个 '{' 作为 JSON 开始
     char *body_start = strchr(p1, '{');
     if (!body_start)
     {
         log_e("JSON start not found");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
 
     if (data_len <= 0)
     {
         log_e("Invalid data_len");
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
     if ((size_t)data_len > buf_size)
     {
         log_e("Body too large: %d > %zu", data_len, buf_size);
-        return -1;
+        ret = -1;
+        goto cleanup;
     }
-    // 复制 JSON 正文
+
     memmove(response_buf, body_start, data_len);
     response_buf[data_len] = '\0';
-    // log_e("copy rsp:\n%s\n",response_buf);
-    log_e("HTTPS GET success, received %d bytes,copy %d\n", data_len,strlen(response_buf));
-    return 0;
+    log_d("HTTPS GET success, received %d bytes, copy %zu bytes", data_len, strlen(response_buf));
+    ret = 0;
+
+cleanup:
+    osal_free(host);
+    osal_free(path);
+    osal_free(buffer);
+    osal_free(cmd);
+    osal_free(http_header);
+    return ret;
 }
 
 // ==================== 以下为原始测试函数，未改动 ====================

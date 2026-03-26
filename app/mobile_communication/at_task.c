@@ -2,13 +2,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h> // 提供 atof / strtod（若标准库可用）
+#include <stdlib.h>
 #include "osal.h"
 #include "hal.h"
 #include "elog.h"
 #include "at_command.h"
 #include "cjson_porting.h"
 #include "cJSON.h"
+
+#ifndef strtok_r
+#define strtok_r(str, delim, saveptr) strtok(str, delim)
+#endif
 
 /* 高德地图 API 基础 URL（不含经纬度参数） */
 #define AMAP_BASE_URL "https://restapi.amap.com/v3/geocode/regeo?key=4f70fd02d9bc904c99e6a341eb0f3d94&location="
@@ -19,6 +23,9 @@
 /* 自定义 atof（若平台未提供标准库函数） */
 static double my_atof(const char *s)
 {
+    if (!s || *s == '\0')
+        return 0.0;
+
     double val = 0.0;
     int sign = 1;
     if (*s == '-')
@@ -71,12 +78,11 @@ static int parse_amap_response(const char *json, char *address, size_t addr_size
     {
         const char *err_ptr = cJSON_GetErrorPtr();
         if (err_ptr)
-            log_e("cJSON_Parse error\n");    
+            log_e("cJSON_Parse error\n");
         // log_e("JSON parse error at: %s\n", err_ptr);
 
         return -1;
     }
-    log_e("root type: %d\n", root->type);
     /* 检查状态 */
     cJSON *status = cJSON_GetObjectItem(root, "status");
     if (!status || !cJSON_IsString(status) || strcmp(status->valuestring, "1") != 0)
@@ -111,8 +117,9 @@ static int parse_amap_response(const char *json, char *address, size_t addr_size
         cJSON_Delete(root);
         return -1;
     }
-    strncpy(address, addr_str, addr_size);
-    address[addr_size - 1] = '\0';
+    size_t copy_len = (addr_len < addr_size - 1) ? addr_len : (addr_size - 1);
+    memcpy(address, addr_str, copy_len);
+    address[copy_len] = '\0';
 
     /* 提取经纬度（可选，从 addressComponent.streetNumber.location 获取） */
     if (out_lon && out_lat)
@@ -126,11 +133,12 @@ static int parse_amap_response(const char *json, char *address, size_t addr_size
                 cJSON *loc = cJSON_GetObjectItem(street_num, "location");
                 if (loc && cJSON_IsString(loc))
                 {
-                    char *token = strtok(loc->valuestring, ",");
+                    char *saveptr = NULL;
+                    char *token = strtok_r(loc->valuestring, ",", &saveptr);
                     if (token)
                     {
-                        *out_lon = my_atof(token); // 使用自定义转换
-                        token = strtok(NULL, ",");
+                        *out_lon = my_atof(token);
+                        token = strtok_r(NULL, ",", &saveptr);
                         if (token)
                             *out_lat = my_atof(token);
                     }
@@ -152,6 +160,12 @@ int query_geocode(double lon, double lat, char *address, size_t addr_size,
     if (!address || addr_size == 0)
     {
         log_e("Invalid address buffer");
+        return -1;
+    }
+
+    if (lon < -180.0 || lon > 180.0 || lat < -90.0 || lat > 90.0)
+    {
+        log_e("Invalid coordinates: lon=%f, lat=%f", lon, lat);
         return -1;
     }
 
@@ -205,7 +219,7 @@ void at_task(void *param)
 
     /* 示例：查询天安门坐标 */
     char address[256];
-    double lon = 116.397128, lat = 39.916527;
+    double lon = 115.930705, lat = 28.658392;
     double out_lon = 0.0, out_lat = 0.0;
 
     if (query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
