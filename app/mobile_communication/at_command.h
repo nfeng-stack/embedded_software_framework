@@ -6,4 +6,5 @@
 int at_module_config(void);
 int https_get(const char *url, char *response_buf, size_t buf_size);
 int at_do_http_request(void);
+int32_t at_get_location(double *lon , double *lat );
 #endif

@@ -185,6 +185,17 @@ int at_module_config(void)
         log_e("Network not registered, mode=%c status=%c", p[0], p[2]);
         return -1;
     }
+    ret = at_send_cmd("AT+QGPS?\r\n",buffer,sizeof(buffer),AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer,"+QGPS:") == NULL)
+    {
+        log_e("QGPS get status error\n");
+        return -1;
+    }
+    if(strchr(strstr(buffer,"+QGPS:"),'0') != NULL && at_send_and_check_ok("AT+QGPS=1\r\n") != 0)
+    {
+        log_e("AT open gps failed\n%s\n",buffer);
+        return -1;
+    }
 
     // 5. 检查PS域附着
     ret = at_send_cmd("AT+CGATT?\r\n", buffer, sizeof(buffer), AT_CMD_TIMEOUT);
@@ -222,7 +233,6 @@ int at_module_config(void)
     {
         log_d("IP obtained: %s", buffer);
     }
-
     return 0;
 }
 
@@ -472,6 +482,297 @@ cleanup:
     osal_free(http_header);
     return ret;
 }
+#include <stdio.h>
+
+
+/**
+ * @brief 手写实现 atoi (字符串转整数)
+ */
+static int my_atoi(const char *str)
+{
+    int result = 0;
+    int i = 0;
+
+    if (str == NULL) return 0;
+
+    while (str[i] != '\0') {
+        if (str[i] >= '0' && str[i] <= '9') {
+            result = result * 10 + (str[i] - '0');
+        }
+        i++;
+    }
+    return result;
+}
+
+/**
+ * @brief 手写实现 atof (字符串转浮点数)
+ */
+static double my_atof(const char *str)
+{
+    double result = 0.0;
+    double fraction = 0.1;
+    int i = 0;
+
+    if (str == NULL) return 0.0;
+
+    // 1. 处理整数部分
+    while (str[i] != '\0' && str[i] != '.') {
+        if (str[i] >= '0' && str[i] <= '9') {
+            result = result * 10 + (str[i] - '0');
+        }
+        i++;
+    }
+
+    // 2. 处理小数部分
+    if (str[i] == '.') {
+        i++; // 跳过小数点
+        while (str[i] != '\0') {
+            if (str[i] >= '0' && str[i] <= '9') {
+                result += (str[i] - '0') * fraction;
+                fraction /= 10.0;
+            }
+            i++;
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 简单的字符串长度计算 (替代 strlen)
+ */
+static int my_strlen(const char *str)
+{
+    int len = 0;
+    if (!str) return 0;
+    while (str[len] != '\0') len++;
+    return len;
+}
+
+/**
+ * @brief 简单的查找字符 (替代 strchr)
+ */
+static char* my_strchr(const char *str, char ch)
+{
+    if (!str) return NULL;
+    while (*str != '\0') {
+        if (*str == ch) return (char *)str;
+        str++;
+    }
+    return NULL;
+}
+
+/**
+ * @brief 简单的查找子串 (替代 strstr)
+ */
+static char* my_strstr(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle) return NULL;
+    if (*needle == '\0') return (char *)haystack;
+
+    while (*haystack != '\0') {
+        const char *h = haystack;
+        const char *n = needle;
+        while (*h == *n && *n != '\0') {
+            h++;
+            n++;
+        }
+        if (*n == '\0') return (char *)haystack;
+        haystack++;
+    }
+    return NULL;
+}
+
+/**
+ * @brief 简单的字符串分割 (替代 strtok_r)
+ */
+static char* my_strtok_r(char *str, const char *delim, char **saveptr)
+{
+    char *start;
+    char *end;
+
+    if (str != NULL) {
+        start = str;
+    } else {
+        start = *saveptr;
+    }
+
+    if (*start == '\0') {
+        *saveptr = start;
+        return NULL;
+    }
+
+    // 找到下一个分隔符
+    end = start;
+    while (*end != '\0') {
+        int is_delim = 0;
+        const char *d = delim;
+        while (*d != '\0') {
+            if (*end == *d) {
+                is_delim = 1;
+                break;
+            }
+            d++;
+        }
+        if (is_delim) break;
+        end++;
+    }
+
+    if (*end == '\0') {
+        *saveptr = end;
+        return start;
+    }
+
+    *end = '\0';
+    *saveptr = end + 1;
+    return start;
+}
+
+/**
+ * @brief 将 NMEA 的 ddmm.mmmmm 格式转换为十进制度数
+ */
+static int nmea_to_decimal(const char *nmea_val, double *degrees)
+{
+    if (nmea_val == NULL || degrees == NULL) return -1;
+
+    int len = my_strlen(nmea_val);
+    if (len < 4) return -1;
+
+    // 1. 找到小数点位置
+    char *dot_pos = my_strchr(nmea_val, '.');
+    if (dot_pos == NULL) return -1;
+
+    // 2. 计算“分”的起始位置（小数点前两位）
+    char *min_start = dot_pos - 2;
+    if (min_start < nmea_val) return -1;
+
+    // 3. 提取“度”
+    char degree_str[10] = {0};
+    int degree_len = min_start - nmea_val;
+    
+    // 修复警告：将 sizeof 结果强转为 int
+    if (degree_len >= (int)sizeof(degree_str)) return -1;
+    
+    // 手动复制字符串
+    for(int i=0; i<degree_len; i++){
+        degree_str[i] = nmea_val[i];
+    }
+
+    // 使用手写的 my_atoi
+    int degree = my_atoi(degree_str);
+
+    // 4. 提取“分” (从 min_start 到字符串末尾)
+    // 使用手写的 my_atof
+    double minute = my_atof(min_start);
+
+    // 5. 计算最终结果
+    *degrees = (double)degree + (minute / 60.0);
+
+    return 0;
+}
+
+/**
+ * @brief 获取 GPS 经纬度
+ */
+int32_t at_get_location(double *lon , double *lat )
+{
+    char *rx_buffer = (char *)osal_malloc(AT_BUFFER_SIZE);
+    if(rx_buffer == NULL)
+    {
+        log_e("%s malloc error\n",__func__);
+        return -1;
+    }
+
+    // 修复警告：强制类型转换为 uint8_t*
+    hal_uart2_write((uint8_t *)"AT+QGPSGNMEA=\"RMC\"\r\n");
+
+    int ret = at_rsp_wait(NULL, rx_buffer, AT_BUFFER_SIZE, AT_CMD_TIMEOUT);
+    if(ret != 0)
+    {
+        log_e("%s get loc rsp error:%d\n",__func__,ret);
+        osal_free(rx_buffer);
+        return -1;
+    }
+
+    *lon = 0.0;
+    *lat = 0.0;
+    log_e("loc rsp:\n%s\n",rx_buffer);
+    // 使用手写的 my_strstr
+    char *rmc_start = my_strstr(rx_buffer, "$GNRMC");
+    if (rmc_start == NULL) {
+        rmc_start = my_strstr(rx_buffer, "$GPRMC");
+    }
+
+    if (rmc_start == NULL) {
+        log_e("No RMC data found\n");
+        osal_free(rx_buffer);
+        return -1;
+    }
+
+    char *token;
+    char *saveptr;
+    int field_idx = 0;
+    
+    char lat_str[20] = {0};
+    char lat_dir = 'N';
+    char lon_str[20] = {0};
+    char lon_dir = 'E';
+    char status = 'V';
+
+    // 使用手写的 my_strtok_r
+    token = my_strtok_r(rmc_start, ",", &saveptr);
+    
+    while (token != NULL) {
+        // 清理换行符
+        char *newline = my_strchr(token, '\r'); 
+        if(newline) *newline = 0;
+        newline = my_strchr(token, '\n'); 
+        if(newline) *newline = 0;
+
+        switch (field_idx) {
+            case 2: status = token[0]; break;
+            case 3: 
+                // 简单的手动复制
+                for(int i=0; i<19 && token[i]!='\0'; i++) lat_str[i] = token[i];
+                break;
+            case 4: lat_dir = token[0]; break;
+            case 5: 
+                // 简单的手动复制
+                for(int i=0; i<19 && token[i]!='\0'; i++) lon_str[i] = token[i];
+                break;
+            case 6: lon_dir = token[0]; break;
+            default: break;
+        }
+        field_idx++;
+        token = my_strtok_r(NULL, ",", &saveptr);
+    }
+
+    osal_free(rx_buffer);
+
+    // 检查状态位是否为 'A'
+    if (status != 'A') {
+        log_w("GPS Status is '%c' (Void)\n", status);
+        return -1;
+    }
+
+    // 转换坐标
+    if (nmea_to_decimal(lat_str, lat) != 0) {
+        log_e("Parse Lat Error\n");
+        return -1;
+    }
+    
+    if (nmea_to_decimal(lon_str, lon) != 0) {
+        log_e("Parse Lon Error\n");
+        return -1;
+    }
+
+    // 处理南半球/西半球
+    if (lat_dir == 'S') *lat = -*lat;
+    if (lon_dir == 'W') *lon = -*lon;
+
+    log_d("Location OK: Lat=%.6f, Lon=%.6f\n", *lat, *lon);
+    return 0;
+}
+
 
 // ==================== 以下为原始测试函数，未改动 ====================
 int at_do_http_request(void)

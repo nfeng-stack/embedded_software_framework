@@ -199,7 +199,11 @@ int query_geocode(double lon, double lat, char *address, size_t addr_size,
     osal_free(rsp_buf);
     return ret;
 }
-
+osal_semaphore_t at_sem = NULL;
+void at_sem_relase(void)
+{
+    osal_sem_release(at_sem);
+}
 /**
  * @brief AT 命令处理任务（示例）
  */
@@ -219,21 +223,21 @@ void at_task(void *param)
 
     /* 示例：查询天安门坐标 */
     char address[256];
-    double lon = 115.930705, lat = 28.658392;
+    double lon = 0, lat = 0;
     double out_lon = 0.0, out_lat = 0.0;
-
-    if (query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
-    {
-        log_e("Location: %s", address);
-        log_e("Parsed coordinates: %f, %f", out_lon, out_lat);
-    }
-    else
-    {
-        log_e("Failed to get location");
-    }
 
     while (1)
     {
+        osal_sem_take(at_sem,-1);
+        if (at_get_location(&lon,&lat) == 0 && query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
+        {
+            log_e("Location: %s", address);
+            log_e("Parsed coordinates: %f, %f", out_lon, out_lat);
+        }
+        else
+        {
+            log_e("Failed to get location");
+        }
         osal_task_delay(1000);
     }
 }
@@ -244,7 +248,9 @@ void at_task(void *param)
 void at_cmd_task_init(void)
 {
     osal_task_t task = osal_task_create("at_task", at_task, NULL, 1024 * 10, 10, 20);
-    if (task == NULL)
+    at_sem = osal_sem_create("at_sem", 0, 0);
+
+    if (task == NULL || at_sem == NULL)
     {
         log_e("AT task creation failed");
         return;

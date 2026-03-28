@@ -35,8 +35,8 @@ int main(void)
     hal_uart2_init();
     log_strategy();
     at_cmd_task_init();
-    // ai_task_init();
-    // mpu6050_init_task();
+    ai_task_init();
+    mpu6050_init_task();
     while (1)
     {
         osal_task_delay(10000);
