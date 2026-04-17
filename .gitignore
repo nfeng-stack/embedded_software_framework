@@ -40,3 +40,4 @@ build/
 tags
 cscope.*
 .cache/
+*.json

@@ -16,7 +16,7 @@
 
 /* 高德地图 API 基础 URL（不含经纬度参数） */
 #define AMAP_BASE_URL "https://restapi.amap.com/v3/geocode/regeo?key=4f70fd02d9bc904c99e6a341eb0f3d94&location="
-
+#define CALL_NUM    "13800138000"
 /* 响应缓冲区大小 */
 #define RSP_BUF_SIZE 4096
 
@@ -211,7 +211,7 @@ void at_task(void *param)
 {
     (void)param;
 
-    /* 初始化 cJSON 内存适配（若有自定义分配器） */
+    /* 初始化 cJSON 内存适配 */
     cJSON_Porting_Init();
 
     /* 初始化网络模块 */
@@ -221,23 +221,46 @@ void at_task(void *param)
         return;
     }
 
-    /* 示例：查询天安门坐标 */
     char address[256];
     double lon = 0, lat = 0;
     double out_lon = 0.0, out_lat = 0.0;
 
+    /* 目标手机号，请根据实际情况修改 */
+    const char *phone_number = CALL_NUM;
+
     while (1)
     {
-        osal_sem_take(at_sem,-1);
-        if (at_get_location(&lon,&lat) == 0 && query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
+        osal_sem_take(at_sem, -1);
+
+        if (at_get_location(&lon, &lat) == 0 && 
+            query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
         {
-            log_e("Location: %s", address);
-            log_e("Parsed coordinates: %f, %f", out_lon, out_lat);
+            /* 构造短信内容：地址 + 经纬度 */
+            char sms_content[512];
+            int len = snprintf(sms_content, sizeof(sms_content),
+                               "Location: %s\nLon: %.6f, Lat: %.6f",
+                               address, out_lon, out_lat);
+            if (len < 0 || (size_t)len >= sizeof(sms_content))
+            {
+                log_e("SMS content too long");
+            }
+            else
+            {
+                if (at_send_sms(sms_content, (char *)phone_number) != 0)
+                {
+                    log_e("Send SMS failed");
+                }
+                else
+                {
+                    log_i("SMS sent: %s", sms_content);
+                }
+            }
         }
         else
         {
             log_e("Failed to get location");
         }
+
         osal_task_delay(1000);
     }
 }

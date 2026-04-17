@@ -773,6 +773,66 @@ int32_t at_get_location(double *lon , double *lat )
     return 0;
 }
 
+/*===================== 发送短信相关函数 ===========================*/
+int32_t at_send_sms(char *message, char *call_num)
+{
+    if (!message || !call_num) {
+        log_e("Invalid parameters for SMS send");
+        return -1;
+    }
+
+    char *buffer = (char *)osal_malloc(512);
+    if (!buffer) {
+        log_e("Memory allocation failed for SMS buffer");
+        return -1;
+    }
+
+    int ret = -1;
+
+    // 1. 设置文本模式
+    if (at_send_and_check_ok("AT+CMGF=1\r\n") != 0) {
+        log_e("Set SMS text mode failed");
+        goto cleanup;
+    }
+
+    // 2. 发送命令并等待 '>' 提示符
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd), "AT+CMGS=\"%s\"\r\n", call_num);
+    hal_uart2_write(cmd);
+    ret = at_rsp_wait(">", buffer, 512, AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK) {
+        log_e("Wait for '>' prompt failed, ret=%d", ret);
+        ret = -1;
+        goto cleanup;
+    }
+
+    // 3. 发送消息内容
+    hal_uart2_write(message);
+    // 发送 Ctrl+Z (ASCII 26) 表示结束
+    hal_uart2_write("\x1A");
+
+    // 4. 等待最终响应（OK 或 ERROR）
+    ret = at_rsp_wait(NULL, buffer, 512, AT_CMD_TIMEOUT);
+    if (ret != AT_RSP_OK) {
+        log_e("SMS send response failed, ret=%d", ret);
+        ret = -1;
+        goto cleanup;
+    }
+
+    // 检查响应中是否包含 OK（最终成功标志）
+    if (strstr(buffer, "OK") == NULL) {
+        log_e("No OK in SMS response: %s", buffer);
+        ret = -1;
+        goto cleanup;
+    }
+
+    log_i("SMS sent successfully to %s", call_num);
+    ret = 0;
+
+cleanup:
+    osal_free(buffer);
+    return ret;
+}
 
 // ==================== 以下为原始测试函数，未改动 ====================
 int at_do_http_request(void)
