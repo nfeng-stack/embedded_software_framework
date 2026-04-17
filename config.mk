@@ -45,7 +45,8 @@ C_DEFS = \
 # C includes (basic - will be extended in main Makefile)
 C_INCLUDES = -Iframework/service/log_service/inc\
 			-Iinclude \
-			-Iframework/service/framework_service/include
+			-Iframework/service/framework_service/include \
+			-Iframework/service/fatfs/inc
 
 
 # ASM defines

@@ -171,4 +171,5 @@ static void async_output(void *arg) {
         }
     }
 }
+
 #endif

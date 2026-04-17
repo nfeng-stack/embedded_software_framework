@@ -270,6 +270,7 @@ void at_task(void *param)
  */
 void at_cmd_task_init(void)
 {
+    hal_uart2_init();
     osal_task_t task = osal_task_create("at_task", at_task, NULL, 1024 * 10, 10, 20);
     at_sem = osal_sem_create("at_sem", 0, 0);
 

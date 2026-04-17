@@ -7,29 +7,26 @@
  * example tasks.
  */
 #define LOG_TAG "main"
+#include <string.h>
 #include "elog.h"
 #include "hal.h"
 #include "mpu6050_wrap.h"
 #include "osal.h"
+#include "fatfs_service.h"
 
 extern void at_cmd_task_init(void);
 extern void ai_task_init(void);
-extern int32_t w25xx_test(void);
 
-static int log_strategy(void) {
-  elog_init();
-  elog_start();
-  return 0;
-}
+
+
+
 int main(void) {
-  hal_uart1_init();
-  hal_uart2_init();
+  osal_task_delay(100);
   log_strategy();
-  // at_cmd_task_init();
-  // ai_task_init();
-  // mpu6050_init_task();
-  osal_task_delay(10);
- w25xx_test();
+//   at_cmd_task_init();
+//   ai_task_init();
+//   mpu6050_init_task();
+  fatfs_init();
   while (1) {
     log_v("os is runing ...\n");
     osal_task_delay(10000);

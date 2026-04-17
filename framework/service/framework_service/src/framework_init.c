@@ -136,6 +136,7 @@ void framework_sdk_base_init(void)
     /* 系统的基础时钟*/
     hal_system_clock_init();
     /* 配置基本的内核级别的硬件，如内存，数据总线，mpu，flash，内核电源等*/
+    hal_uart1_init();
 }
 
 void framework_os_base_init(void)
