@@ -5,4 +5,5 @@ obj-y += platform_uart_driver.o
 obj-y += platform_system_driver.o
 obj-y += platform_iic_driver.o
 obj-y += platform_xspi_driver.o
+obj-y += platform_usb_driver.o
 EXTRA_CFLAGS += -Ihal/stm32h5

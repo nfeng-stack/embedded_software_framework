@@ -26,7 +26,8 @@ int main(void) {
 //   at_cmd_task_init();
 //   ai_task_init();
 //   mpu6050_init_task();
-  fatfs_init();
+    // hal_usb_init();
+//   fatfs_init();
   while (1) {
     log_v("os is runing ...\n");
     osal_task_delay(10000);
