@@ -44,6 +44,5 @@ int32_t platform_usb_ep_clear_stall(uint8_t ep_addr);
 int32_t platform_usb_ep_flush(uint8_t ep_addr);
 int32_t platform_usb_set_callbacks(const void *callbacks);
 
-/* USB Clock Configuration */
-int32_t platform_usb_clock_init(void);
+void platform_usb_clock_io_init(void);
 #endif

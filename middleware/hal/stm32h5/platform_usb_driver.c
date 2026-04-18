@@ -34,6 +34,9 @@ static void USB_Clock_Config(void);
 static void USB_GPIO_Config(void);
 static void USB_Interrupt_Config(void);
 
+/* Public function prototypes -----------------------------------------------*/
+void platform_usb_clock_io_init(void);
+
 /* Private functions ---------------------------------------------------------*/
 
 /**
@@ -102,19 +105,31 @@ static void USB_Interrupt_Config(void)
 void HAL_PCD_MspInit(PCD_HandleTypeDef *pcdHandle)
 {
     if (pcdHandle->Instance == USB_DRD_FS) {
-        /* Configure USB clock */
-        USB_Clock_Config();
-        
-        /* Configure USB GPIO */
-        USB_GPIO_Config();
-        
-        /* Configure USB interrupts */
-        USB_Interrupt_Config();
+        /* Configure USB clock, GPIO, and interrupts via platform function */
+        platform_usb_clock_io_init();
         
         log_d("USB MSP initialization complete");
     }
 }
-
+void platform_usb_clock_io_init(void)
+{
+    static bool initialized = false;
+    
+    if (initialized) {
+        return;
+    }
+    
+    USB_Clock_Config();
+        
+    /* Configure USB GPIO */
+    USB_GPIO_Config();
+        
+    /* Configure USB interrupts */
+    USB_Interrupt_Config();
+    HAL_PWREx_EnableVddUSB();
+    
+    initialized = true;
+}
 /**
  * @brief HAL PCD MSP De-Initialization
  */
@@ -153,7 +168,6 @@ int32_t platform_usb_init(void)
     hpcd_USB_DRD_FS.Init.low_power_enable = DISABLE;
     hpcd_USB_DRD_FS.Init.lpm_enable = DISABLE;
     hpcd_USB_DRD_FS.Init.battery_charging_enable = DISABLE;
-    
     /* Initialize USB peripheral */
     if (HAL_PCD_Init(&hpcd_USB_DRD_FS) != HAL_OK) {
         log_e("USB initialization failed");
@@ -359,13 +373,13 @@ int32_t platform_usb_set_callbacks(const void *callbacks)
  * @brief USB DRD FS Interrupt Handler
  *        Overrides the weak symbol in irq_handlers_stm32h5.h
  */
-void USB_DRD_FS_IRQHandler(void)
-{
-    /* Call HAL PCD IRQ handler */
-    HAL_PCD_IRQHandler(&hpcd_USB_DRD_FS);
+// void USB_DRD_FS_IRQHandler(void)
+// {
+//     /* Call HAL PCD IRQ handler */
+   
     
-    /* Note: Application-specific interrupt handling can be added here */
-}
+//     /* Note: Application-specific interrupt handling can be added here */
+// }
 
 /* Weak callback implementations ---------------------------------------------*/
 

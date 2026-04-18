@@ -13,6 +13,8 @@ void hal_system_clock_pre_init()
 
 void hal_system_clock_init()
 {
+    /* Early initialization to read UID before ICACHE is enabled (STM32H5 errata) */
+    // platform_early_init();
     platform_system_clock_init();
 }
 

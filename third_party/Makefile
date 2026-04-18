@@ -10,5 +10,6 @@ ifeq ($(OSAL_RTOS),rtthread)
 obj-y += rt-thread/
 endif
 
+obj-y += tinyusb/
 # Include local configuration if exists
 -include local.mk

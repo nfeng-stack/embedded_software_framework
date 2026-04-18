@@ -23,6 +23,13 @@ extern "C"
      *----------------------------------------------------------------------------*/
 
     /**
+     * @brief Early system initialization (before ICACHE is enabled)
+     * @note Must be called before platform_system_clock_init() on STM32H5
+     *       to read UID before ICACHE is enabled (hardware errata workaround)
+     */
+    void platform_early_init(void);
+    
+    /**
      * @brief Initialize system clock to desired frequency
      * @param target_hz Target core clock frequency in Hz
      * @return Actual configured frequency in Hz (0 if error)

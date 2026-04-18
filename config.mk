@@ -122,11 +122,11 @@ ifeq ($(HAL_PLATFORM),stm32h5)
 	# STM32H5 clock configuration (8MHz HSE, 32.768kHz LSE)
 	C_DEFS += -DHSE_VALUE=8000000UL -DLSE_VALUE=32768UL
 	C_DEFS += -DHSI_VALUE=64000000UL -DCSI_VALUE=4000000UL
-	C_DEFS += -DSYSCLK_FREQ=250000000UL
+	C_DEFS += -DSYSCLK_FREQ=250000000UL 
 	C_INCLUDES += -Ithird_party/stm32h5xx_hal_driver/Inc \
 		-Ithird_party/CMSIS/Core/Include \
 		-Ithird_party/CMSIS/Device/ST/STM32H5xx/Include \
-		-Iinclude
+		-Iinclude 
 endif
 
 ifeq ($(OSAL_RTOS),rtthread)

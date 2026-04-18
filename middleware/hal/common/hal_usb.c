@@ -161,3 +161,8 @@ int32_t hal_usb_set_callbacks(const void *callbacks)
 {
     return platform_usb_set_callbacks(callbacks);
 }
+
+void hal_usb_clock_io_init(void)
+{
+    platform_usb_clock_io_init();
+}

@@ -181,7 +181,7 @@ int32_t hal_usb_ep_flush(uint8_t ep_addr);
  */
 int32_t hal_usb_set_callbacks(const void *callbacks);
 
-
+void hal_usb_clock_io_init(void);
 #ifdef __cplusplus
 }
 #endif

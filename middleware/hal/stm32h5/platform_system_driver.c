@@ -9,10 +9,35 @@
 #include "stm32h5xx_hal_cortex.h"
 #include "stm32h5xx_hal_rcc.h"
 #include <stddef.h>
+#include <stdbool.h>
+
+/* Early cached UID to avoid hardware errata on STM32H5 */
+static uint32_t early_cached_uid[3] = {0, 0, 0};
+static bool uid_cached = false;
 
 void platform_sdk_init() { HAL_Init(); }
 
 void (*platform_get_sytemtick_handler(void))(void) { return HAL_IncTick; }
+
+/**
+ * @brief Early system initialization (before ICACHE is enabled)
+ * 
+ * Reads UID before ICACHE is enabled to avoid STM32H5 hardware errata:
+ * "reading UID_BASE with ICACHE enabled causes hard fault"
+ */
+void platform_early_init(void) {
+    if (uid_cached) {
+        return; // Already cached
+    }
+    
+    // Read UID before ICACHE is enabled
+    volatile uint32_t* stm32_uuid = (volatile uint32_t*) UID_BASE;
+    early_cached_uid[0] = stm32_uuid[0];
+    early_cached_uid[1] = stm32_uuid[1];
+    early_cached_uid[2] = stm32_uuid[2];
+    
+    uid_cached = true;
+}
 
 /*------------------------------------------------------------------------------
  * System Clock
@@ -208,11 +233,16 @@ uint32_t hal_system_get_uid(uint8_t *buffer, uint32_t size) {
     return 0;
   }
 
-  /* TODO: Read from UID registers */
-  /* For now, fill with zeros */
-  for (uint32_t i = 0; i < 12 && i < size; i++) {
-    buffer[i] = 0;
+  /* Ensure UID is cached (safe to call even if ICACHE not enabled yet) */
+  if (!uid_cached) {
+    platform_early_init();
   }
+
+  /* Copy cached UID to buffer */
+  uint32_t* uid32 = (uint32_t*)buffer;
+  uid32[0] = early_cached_uid[0];
+  uid32[1] = early_cached_uid[1];
+  uid32[2] = early_cached_uid[2];
 
   return 12;
 }

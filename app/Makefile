@@ -4,5 +4,6 @@ obj-y += mpu6050/
 obj-y += aiNet/
 obj-y += mobile_communication/
 obj-y += w25qxx/
+obj-y += cdc_msc/
 
 EXTRA_CFLAGS += -Iapp/mpu6050
