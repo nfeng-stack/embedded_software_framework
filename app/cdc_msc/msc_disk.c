@@ -46,6 +46,7 @@ extern int disk_set_access_lock(bool lock);
 // USB connection callbacks
 void tud_mount_cb(void) {
     disk_set_access_lock(true);
+    ejected = false;
 }
 
 void tud_umount_cb(void) {
@@ -111,9 +112,13 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
   if (load_eject) {
     if (start) {
       // load disk storage
+      ejected = false;
     } else {
       // unload disk storage
       ejected = true;
+      // Notify USB layer to disconnect after safe eject
+      extern void usb_protocol_request_disconnect(void);
+      usb_protocol_request_disconnect();
     }
   }
 
@@ -124,6 +129,9 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
   (void) lun;
+  
+  if (ejected) return -1;
+  
   int32_t ret = -1;
   
   msc_callback_active = true;
@@ -172,6 +180,9 @@ bool tud_msc_is_writable_cb(uint8_t lun) {
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
   (void) lun;
+  
+  if (ejected) return -1;
+  
   int32_t ret = -1;
   
   msc_callback_active = true;
