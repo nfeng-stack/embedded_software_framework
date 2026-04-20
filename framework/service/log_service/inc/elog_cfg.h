@@ -65,7 +65,7 @@
 // #define ELOG_FMT_USING_LINE
 /*---------------------------------------------------------------------------*/
 /* enable asynchronous output mode */
-// #define ELOG_ASYNC_OUTPUT_ENABLE
+#define ELOG_ASYNC_OUTPUT_ENABLE
 /* the highest output level for async mode, other level will sync output */
 #define ELOG_ASYNC_OUTPUT_LVL                    ELOG_LVL_VERBOSE
 /* buffer size for asynchronous output mode */
@@ -79,5 +79,8 @@
 // #define ELOG_BUF_OUTPUT_ENABLE
 // /* buffer size for buffered output mode */
 // #define ELOG_BUF_OUTPUT_BUF_SIZE                 (ELOG_LINE_BUF_SIZE * 10)
+
+#define ELOG_UART_OUTPUT
+#define ELOG_FILE_OUTPUT
 
 #endif /* _ELOG_CFG_H_ */

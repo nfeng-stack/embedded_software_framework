@@ -15,6 +15,7 @@
 #include "tusb.h"
 #include "usb_protocol.h"
 #include "board_api.h"
+#include "usb_state.h"
 /* USB task configuration */
 #define USB_TASK_STACK_SIZE      (2048)
 #define USB_TASK_PRIORITY        (8)     /* Higher number = lower priority */
@@ -64,17 +65,36 @@ static int usb_hardware_deinit(void)
  * @brief USB protocol task entry function
  * 
  * This function runs in a separate thread and calls tud_task() periodically
- * to handle USB events. It also implements a simple LED blinking pattern
- * to indicate USB activity.
+ * to handle USB events. It also monitors USB connection state and updates
+ * the shared state for other components (e.g., logging, file system).
  */
 void usb_protocol_task_entry(void *arg)
 {
     (void)arg;
     log_d("USB protocol task started");
     
+    bool last_connected_state = false;
+    
     while (1) {
         /* Process USB events - this handles all USB communication */
         tud_task();
+        
+        /* Monitor USB connection state */
+        /* Check both physical connection and mount status for MSC */
+        bool current_connected = tud_connected() && tud_mounted();
+        
+        /* Update shared state if changed */
+        if (current_connected != last_connected_state) {
+            usb_state_set_connected(current_connected);
+            last_connected_state = current_connected;
+            
+            /* Log state change for debugging */
+            if (current_connected) {
+                log_i("USB connected and mounted as mass storage");
+            } else {
+                log_i("USB disconnected or unmounted");
+            }
+        }
         
         /* Optional: Add CDC/MSC specific task handling here */
         /* For example: cdc_task(); if CDC is enabled */
@@ -104,6 +124,10 @@ int usb_protocol_init(void)
         log_e("USB hardware initialization failed: %d", ret);
         return ret;
     }
+    
+    /* Initialize USB state management */
+    usb_state_init();
+    
     // board_init();
     /* Step 2: Initialize TinyUSB protocol stack */
     tusb_rhport_init_t dev_init = {
@@ -218,5 +242,6 @@ bool usb_protocol_is_connected(void)
         return false;
     }
     
-    return (hal_usb_is_connected() != 0);
+    /* Use the shared USB state managed by the USB task */
+    return usb_state_is_connected();
 }

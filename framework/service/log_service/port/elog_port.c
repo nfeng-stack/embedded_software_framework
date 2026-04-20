@@ -73,6 +73,24 @@ void elog_port_deinit(void) {
 }
 
 /**
+ * Weak function for USB connection check.
+ * Default implementation returns false (not connected).
+ * Application can override this function with a strong definition.
+ */
+__attribute__((weak)) bool usb_state_is_connected(void) {
+    return false;
+}
+
+/**
+ * Weak function for file system readiness check.
+ * Default implementation returns false (not ready).
+ * File logging plugin should override this function with a strong definition.
+ */
+__attribute__((weak)) bool elog_file_is_ready(void) {
+    return false;
+}
+extern uint8_t log_file_read ;
+/**
  * output log port interface
  *
  * @param log output of log
@@ -80,10 +98,36 @@ void elog_port_deinit(void) {
  */
 void elog_port_output(const char *log, size_t size) {
     // printf("%.*s",size,log);
+#ifdef  ELOG_UART_OUTPUT
 extern void output_char(int file, char *ptr, unsigned int len);
-
     output_char(0,log,size);
-
+#endif
+#ifdef  ELOG_FILE_OUTPUT
+extern void elog_file_write(const char *log, size_t size);
+    
+    /* Skip file write if USB is connected OR file system not ready */
+    if (log_file_read == 1 &&!usb_state_is_connected() && elog_file_is_ready()) {
+        elog_file_write(log, size);
+    } else {
+        /* USB connected or file system not ready - skip file write
+         * Optional: add statistics or debug output here
+         */
+        static uint32_t skipped_count = 0;
+        skipped_count++;
+        /* Example: log every 100 skipped writes (via UART) */
+        if ((skipped_count % 100) == 0) {
+            /* Uncomment for debugging:
+            output_char(0, "[LOG] File write skipped (", 25);
+            if (usb_state_is_connected()) {
+                output_char(0, "USB connected", 13);
+            } else {
+                output_char(0, "FS not ready", 12);
+            }
+            output_char(0, ")\n", 2);
+            */
+        }
+    }
+#endif
 }
 
 /**

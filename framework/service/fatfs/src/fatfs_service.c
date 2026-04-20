@@ -150,6 +150,13 @@ fatfs_err_t fatfs_service_init(void)
 	mounted = 1;
 	// log_i("FATFS service initialized successfully");
 	
+	/* Set volume label to "nfeng" */
+	fr = f_setlabel("0:nfeng");
+	if (fr != FR_OK) {
+		log_w("Failed to set volume label: %s", translate_fr_error(fr));
+		/* Continue anyway, not a fatal error */
+	}
+	
 	return FATFS_OK;
 }
 
