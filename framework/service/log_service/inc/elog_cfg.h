@@ -80,7 +80,4 @@
 // /* buffer size for buffered output mode */
 // #define ELOG_BUF_OUTPUT_BUF_SIZE                 (ELOG_LINE_BUF_SIZE * 10)
 
-#define ELOG_UART_OUTPUT
-#define ELOG_FILE_OUTPUT
-
 #endif /* _ELOG_CFG_H_ */

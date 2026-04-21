@@ -12,18 +12,19 @@
 #include "mpu6050_wrap.h"
 #include "osal.h"
 #include "cdc_msc/usb_protocol.h"
-
+#include "fatfs_service.h"
 extern void at_cmd_task_init(void);
 extern void ai_task_init(void);
-uint8_t log_file_read = 0;
+
 int main(void) {
   osal_task_delay(100);
   log_strategy();
   at_cmd_task_init();
   ai_task_init();
+  fatfs_init();
   mpu6050_init_task();
   usb_protocol_init();
-  log_file_read = 1;
+
   while (1) {
     log_v("os is runing ...\n");
     osal_task_delay(10000);

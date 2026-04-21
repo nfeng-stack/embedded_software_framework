@@ -934,10 +934,9 @@ void elog_hexdump(const char *name, uint8_t width, const void *buf, uint16_t siz
     /* unlock output */
     elog_output_unlock();
 }
-extern ElogErrCode elog_file_init(void);
+
 int log_strategy(void) {
   elog_init();
   elog_start();
-  elog_file_init();
   return 0;
 }

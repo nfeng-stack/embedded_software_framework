@@ -14,6 +14,7 @@
 
 #include "driver_mpu6050.h"
 #include "driver_mpu6050_basic.h"
+#include "mpu6050_data_logger.h"
 #include "elog.h"
 #include "framework_interrupts.h"
 #include "osal.h"
@@ -142,6 +143,10 @@ void mpu6050_task(void *param)
                         osal_task_delay(10);
                     }
                 }
+                
+                /* Write raw sensor data to persistent storage */
+                mpu6050_data_logger_write_batch(raw_data, 200);
+                
                 i = 0;
                 quantize_data(raw_data,net_data,200);
                 /**< 此处应该释放ai推理线程让其输出推理结果 */
@@ -249,5 +254,9 @@ void mpu6050_init_task(void)
         return;
     }
     osal_task_startup(mpu_task_t);
+    
+    /* Initialize data logger */
+    mpu6050_data_logger_init();
+    
     return;
 }

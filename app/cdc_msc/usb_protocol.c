@@ -22,6 +22,8 @@ void tud_sof_cb(uint32_t frame_count);
 void usb_protocol_request_disconnect(void);
 static void usb_protocol_check_sof_timeout(void);
 static void usb_protocol_update_connection_state(void);
+/* 添加磁盘锁控制函数声明 */
+extern int disk_set_access_lock(bool lock);
 
 /* USB task configuration */
 #define USB_TASK_STACK_SIZE      (2048)
@@ -329,6 +331,13 @@ static void usb_protocol_check_sof_timeout(void)
             /* Check for SOF timeout indicating physical disconnect */
             if (sof_elapsed > osal_tick_from_millisecond(SOF_TIMEOUT_MS)) {
                 log_i("USB: SOF timeout, physical disconnect detected");
+                /* 物理断开时释放磁盘锁 */
+                int unlock_result = disk_set_access_lock(false);
+                if (unlock_result != 0) {  /* RES_OK is 0 in diskio.c */
+                    log_w("USB: Disk unlock failed: %d", unlock_result);
+                } else {
+                    log_d("USB: Disk lock released successfully");
+                }
                 usb_state = USB_STATE_WAIT_RECONNECT;
                 last_state_change_tick = now;
             }
@@ -338,6 +347,14 @@ static void usb_protocol_check_sof_timeout(void)
             /* After safe eject, wait for physical disconnect detection */
             if (sof_elapsed > osal_tick_from_millisecond(SOF_TIMEOUT_MS)) {
                 log_i("USB: Physical disconnect confirmed after safe eject");
+                /* 安全弹出后的物理断开，磁盘锁已由 tud_umount_cb() 释放，
+                   此处再次释放确保解锁（幂等操作） */
+                int unlock_result = disk_set_access_lock(false);
+                if (unlock_result != 0) {  /* RES_OK is 0 in diskio.c */
+                    log_w("USB: Disk unlock failed: %d", unlock_result);
+                } else {
+                    log_d("USB: Disk lock released after safe eject");
+                }
                 usb_state = USB_STATE_WAIT_RECONNECT;
                 last_state_change_tick = now;
             }

@@ -168,7 +168,6 @@ static void cache_flush_block(int cache_idx)
 	uint32_t block_addr = cache[cache_idx].block_addr;
 	uint8_t *data = cache[cache_idx].data;
 	
-	log_v("Flushing cache block 0x%08X", block_addr);
 	
 	/* Erase the 4KB block */
 	if (w25qxx_advance_sector_erase_4k(block_addr) != 0) {
@@ -201,7 +200,6 @@ static void cache_flush_block(int cache_idx)
 	}
 	
 	cache[cache_idx].dirty = 0;
-	log_v("Cache block flushed successfully");
 }
 
 /*-----------------------------------------------------------------------*/
