@@ -24,7 +24,6 @@ int main(void) {
   fatfs_init();
   mpu6050_init_task();
   usb_protocol_init();
-
   while (1) {
     log_v("os is runing ...\n");
     osal_task_delay(10000);

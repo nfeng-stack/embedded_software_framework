@@ -27,31 +27,40 @@
 #include "tusb.h"
 #include "ff.h"
 #include "diskio.h"
-
 #if CFG_TUD_MSC
 
 // whether host does safe-eject
 static bool ejected = false;
 // flag to indicate MSC callback is active (allows disk access when locked)
-bool msc_callback_active = false;
 
 // FATFS disk parameters (from diskio.c)
 #define FATFS_SECTOR_SIZE    512
 #define FATFS_SECTOR_COUNT   32768  // 16MB / 512
 
 // Disk access mutex (defined in diskio.c)
-extern osal_mutex_t disk_mutex;
-extern int disk_set_access_lock(bool lock);
+
+volatile bool g_usb_is_connected = 0; 
 
 // USB connection callbacks
 void tud_mount_cb(void) {
-    disk_set_access_lock(true);
     ejected = false;
+    g_usb_is_connected = true;  // 标记为连接
+}
+void tud_umount_cb(void) {
 }
 
-void tud_umount_cb(void) {
-    disk_set_access_lock(false);
+void tud_suspend_cb(bool remote_wakeup_en)
+{
+    (void) remote_wakeup_en;
+    g_usb_is_connected = false; // 标记为断开
 }
+
+// 当 USB 总线恢复（收到 SOF 或唤醒信号）时触发
+void tud_resume_cb(void)
+{
+    g_usb_is_connected = true;  // 标记为连接
+}
+
 
 // Some MCU doesn't have enough 8KB SRAM to store the whole disk
 // We will use Flash as read-only disk with board that has
@@ -117,8 +126,6 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
       // unload disk storage
       ejected = true;
       // Notify USB layer to disconnect after safe eject
-      extern void usb_protocol_request_disconnect(void);
-      usb_protocol_request_disconnect();
     }
   }
 
@@ -134,7 +141,6 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
   
   int32_t ret = -1;
   
-  msc_callback_active = true;
 
   // Validate parameters
   if (lba >= FATFS_SECTOR_COUNT) {
@@ -160,9 +166,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
   memcpy(buffer, sector_buffer + offset, bufsize);
 
   ret = (int32_t) bufsize;
-
 exit:
-  msc_callback_active = false;
   return ret;
 }
 
@@ -185,7 +189,6 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *
   
   int32_t ret = -1;
   
-  msc_callback_active = true;
 
   // Validate parameters
   if (lba >= FATFS_SECTOR_COUNT) {
@@ -224,7 +227,6 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *
   ret = (int32_t) bufsize;
 
 exit:
-  msc_callback_active = false;
   return ret;
 }
 

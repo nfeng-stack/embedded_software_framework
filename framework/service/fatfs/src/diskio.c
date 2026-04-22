@@ -11,8 +11,7 @@
 #include "elog.h"	/* Logging */
 #include "osal.h"		/* OS abstraction */
 
-/* External flag indicating MSC callback is active (from msc_disk.c) */
-extern bool msc_callback_active;
+
 
 /* W25Q128JV Specifications */
 #define W25Q128_CAPACITY_BYTES		(16UL * 1024UL * 1024UL)	/* 16 MB */
@@ -44,9 +43,6 @@ static uint32_t cache_misses = 0;
 static uint8_t flash_initialized = 0;
 static uint8_t flash_status = STA_NOINIT;
 
-/* Disk access control */
-static osal_mutex_t disk_mutex = NULL;
-static uint8_t disk_locked = 0;  /* 1 = locked by USB host, 0 = free */
 
 /* Forward declarations */
 static uint8_t wait_flash_ready(void);
@@ -54,7 +50,6 @@ static int cache_find_block(uint32_t block_addr);
 static int cache_alloc_block(uint32_t block_addr);
 static void cache_flush_block(int cache_idx);
 static void cache_flush_all(void);
-static int disk_check_lock(void);
 
 /* Disk access control functions */
 int disk_set_access_lock(bool lock);
@@ -278,13 +273,7 @@ DSTATUS disk_initialize(BYTE pdrv)
 	/* Initialize cache */
 	cache_init();
 	
-	/* Create disk access mutex */
-	disk_mutex = osal_mutex_create("disk_mutex", 0);
-	if (disk_mutex == NULL) {
-		log_e("Failed to create disk mutex");
-		flash_status = STA_NOINIT;
-		return flash_status;
-	}
+
 	
 	flash_initialized = 1;
 	flash_status = 0; /* Clear all status bits */
@@ -309,11 +298,6 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count)
 		return RES_NOTRDY;
 	}
 	
-	/* Check if disk is locked by USB host */
-	DRESULT lock_res = disk_check_lock();
-	if (lock_res != RES_OK) {
-		return lock_res;
-	}
 	
 	if (sector + count > W25Q128_SECTOR_COUNT) {
 		log_e("Read beyond capacity: sector=%lu, count=%u", sector, count);
@@ -369,11 +353,6 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 		return RES_NOTRDY;
 	}
 	
-	/* Check if disk is locked by USB host */
-	DRESULT lock_res = disk_check_lock();
-	if (lock_res != RES_OK) {
-		return lock_res;
-	}
 	
 	if (sector + count > W25Q128_SECTOR_COUNT) {
 		log_e("Write beyond capacity: sector=%lu, count=%u", sector, count);
@@ -469,47 +448,4 @@ DWORD get_fattime(void)
 }
 #endif
 
-/*-----------------------------------------------------------------------*/
-/* Set disk access lock (called when USB host connects/disconnects)      */
-/*-----------------------------------------------------------------------*/
-int disk_set_access_lock(bool lock)
-{
-    if (!flash_initialized) {
-        return RES_NOTRDY;
-    }
-    
-    if (lock) {
-        /* Lock disk for USB host access */
-        if (osal_mutex_take(disk_mutex, 0) != 0) {
-            return RES_ERROR; /* Already locked or error */
-        }
-        /* Flush any pending cache writes before USB host accesses */
-        cache_flush_all();
-        disk_locked = 1;
-    } else {
-        /* Unlock disk for microcontroller access */
-        disk_locked = 0;
-        if (osal_mutex_release(disk_mutex) != 0) {
-            return RES_ERROR;
-        }
-    }
-    
-    return RES_OK;
-}
 
-/*-----------------------------------------------------------------------*/
-/* Internal function to check if disk is locked by USB host              */
-/*-----------------------------------------------------------------------*/
-static int disk_check_lock(void)
-{
-    if (disk_locked) {
-        /* Disk is locked by USB host - only USB MSC callbacks can access */
-        if (msc_callback_active) {
-            /* MSC callback is active, allow access */
-            return RES_OK;
-        }
-        /* Other tasks trying to access disk while USB host is connected */
-        return RES_NOTRDY;
-    }
-    return RES_OK;
-}

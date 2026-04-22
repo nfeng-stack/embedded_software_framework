@@ -16,32 +16,7 @@
 extern "C" {
 #endif
 
-/**
- * @brief Initialize USB state management
- * 
- * This function initializes the internal mutex for thread-safe state access.
- * Should be called during system initialization.
- */
-void usb_state_init(void);
-
-/**
- * @brief Set USB connection state
- * 
- * Updates the internal USB connection state. Should be called by the
- * USB protocol layer when connection status changes.
- * 
- * @param connected true if USB is connected and mounted, false otherwise
- */
-void usb_state_set_connected(bool connected);
-
-/**
- * @brief Check if USB is connected
- * 
- * Returns the current USB connection state in a thread-safe manner.
- * 
- * @return true if USB is connected and mounted as mass storage device,
- *         false otherwise
- */
+ 
 bool usb_state_is_connected(void);
 
 #ifdef __cplusplus

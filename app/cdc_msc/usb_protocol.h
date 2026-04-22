@@ -63,20 +63,6 @@ int usb_protocol_start(void);
  */
 int usb_protocol_stop(void);
 
-/**
- * @brief Get USB device connection state
- * 
- * @return true if connected to host, false otherwise
- */
-bool usb_protocol_is_connected(void);
-
-/**
- * @brief Request USB disconnect after safe eject
- * 
- * Called by MSC layer when host safely ejects the disk.
- * This function disconnects the USB device to prevent auto-reconnection.
- */
-void usb_protocol_request_disconnect(void);
 
 /**
  * @brief USB protocol task function (for internal use)
