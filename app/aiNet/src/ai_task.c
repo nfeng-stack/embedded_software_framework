@@ -2,10 +2,12 @@
 #include "app_x-cube-ai.h"
 #include "osal.h"
 #include "elog.h"
+#include "hal.h"
 extern void at_sem_relase(void);
 
 osal_task_t ai_task_t = NULL;
 osal_semaphore_t ai_sem = NULL;
+extern uint8_t is_send_msg;
 void ai_sem_relase(void)
 {
     osal_sem_release(ai_sem);
@@ -22,9 +24,13 @@ void ai_task(void *param)
             /**< 处理跌倒事件 */
             log_v("ai task detection fall event\n");
             /**< 告述4g模块发送跌倒事件 */
-            // at_sem_relase();
+            is_send_msg = 1;
+            hal_gpio_led_audio_on();
+            at_sem_relase();
+
         }
-        at_sem_relase();
+        // at_sem_relase();
+        // hal_gpio_led_audio_on();
     }
 }
 

@@ -204,6 +204,7 @@ void at_sem_relase(void)
 {
     osal_sem_release(at_sem);
 }
+uint8_t is_send_msg = 1;
 /**
  * @brief AT 命令处理任务（示例）
  */
@@ -229,7 +230,12 @@ void at_task(void *param)
     while (1)
     {
         osal_sem_take(at_sem, -1);
-
+        osal_task_delay(30000);
+        if(is_send_msg != 1) {
+            is_send_msg = 1;
+            hal_gpio_led_audio_off();
+            log_e("user no fall\n");
+        } else {
         if (at_get_location(&lon, &lat) == 0 && 
             query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
         {
@@ -258,7 +264,7 @@ void at_task(void *param)
         {
             log_e("Failed to get location");
         }
-
+    }
         osal_task_delay(1000);
     }
 }

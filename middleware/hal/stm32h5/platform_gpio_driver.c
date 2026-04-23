@@ -13,6 +13,13 @@ void platform_gpio_set_int(void) {
   /* 清除任何可能挂起的EXTI中断标志 */
   __HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_15);
   HAL_NVIC_ClearPendingIRQ(EXTI15_IRQn);
+  GPIO_InitStruct.Pin = GPIO_PIN_3 ;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  HAL_GPIO_Init(GPIOB,&GPIO_InitStruct);
+  __HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_3);
+  HAL_NVIC_ClearPendingIRQ(EXTI3_IRQn);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
   /* 配置NVIC */
   HAL_NVIC_SetPriority(EXTI15_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI15_IRQn);
@@ -44,4 +51,14 @@ void platform_gpio_set_low_spec(void) {
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+}
+extern uint8_t is_send_msg;
+void EXTI3_IRQHandler(void)
+{
+  platform_gpio_set_hight_spec();
+  is_send_msg = 0;
+  while(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) != GPIO_PIN_SET);
+  __HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_3);
+  HAL_NVIC_ClearPendingIRQ(EXTI3_IRQn);
+
 }
