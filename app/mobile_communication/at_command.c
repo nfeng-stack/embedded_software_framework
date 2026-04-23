@@ -5,6 +5,7 @@
 #include "osal.h"
 #include "hal.h"
 #include "elog.h"
+#include "at_command.h"
 
 // AT响应状态码
 #define AT_RSP_OK 0
@@ -628,6 +629,56 @@ static char* my_strtok_r(char *str, const char *delim, char **saveptr)
 }
 
 /**
+ * @brief URL编码字符串
+ * @param src 源字符串
+ * @param dst 目标缓冲区
+ * @param dst_size 目标缓冲区大小
+ * @return 编码后的字符串长度（不含空字符），如果缓冲区不足返回0
+ */
+static size_t url_encode(const char *src, char *dst, size_t dst_size)
+{
+    if (!src || !dst || dst_size == 0)
+        return 0;
+    
+    const char *hex = "0123456789ABCDEF";
+    size_t src_len = strlen(src);
+    size_t dst_idx = 0;
+    
+    for (size_t i = 0; i < src_len; i++)
+    {
+        unsigned char c = (unsigned char)src[i];
+        
+        // 安全字符：字母、数字、连字符、下划线、点号、波浪号
+        if ((c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '~')
+        {
+            if (dst_idx + 1 >= dst_size) // 需要空间给字符和空字符
+                return 0;
+            dst[dst_idx++] = c;
+        }
+        else
+        {
+            // 需要编码为 %XX
+            if (dst_idx + 3 >= dst_size) // 需要空间给%XX和空字符
+                return 0;
+            dst[dst_idx++] = '%';
+            dst[dst_idx++] = hex[c >> 4];
+            dst[dst_idx++] = hex[c & 0x0F];
+        }
+    }
+    
+    // 添加空字符
+    if (dst_idx < dst_size)
+        dst[dst_idx] = '\0';
+    else
+        return 0;
+    
+    return dst_idx; // 返回长度（不含空字符）
+}
+
+/**
  * @brief 将 NMEA 的 ddmm.mmmmm 格式转换为十进制度数
  */
 static int nmea_to_decimal(const char *nmea_val, double *degrees)
@@ -1041,5 +1092,163 @@ int at_do_http_request(void)
     }
 
     log_i("HTTP request completed successfully\n");
+    return 0;
+}
+
+/**
+ * @brief 硬编码测试巴法云报警接口
+ * @note 假设网络已初始化完成（PDP已激活）
+ * @return 0成功，-1失败
+ */
+int at_test_bemfa_alert(void)
+{
+    // 调用通用函数发送测试消息
+    return at_send_bemfa_alert("hello,world");
+}
+
+/**
+ * @brief 发送巴法云报警消息
+ * @param message 要发送的消息内容
+ * @note 假设网络已初始化完成（PDP已激活）
+ * @return 0成功，-1失败
+ */
+int at_send_bemfa_alert(const char *message)
+{
+    if (!message || strlen(message) == 0)
+    {
+        log_e("Invalid message parameter");
+        return -1;
+    }
+    
+    // 限制消息长度，避免缓冲区溢出
+    size_t msg_len = strlen(message);
+    if (msg_len > 200)
+    {
+        log_e("Message too long (max 200 chars)");
+        return -1;
+    }
+    
+    char buffer[AT_BUFFER_SIZE];
+    int ret;
+    /* ========== 1. SSL/TLS配置（使用版本3，与https_get一致） ========== */
+    if (at_send_and_check_ok("AT+QSSLCFG=\"sslversion\",1,3\r\n") != 0 ||
+        at_send_and_check_ok("AT+QSSLCFG=\"ciphersuite\",1,0xFFFF\r\n") != 0 ||
+        at_send_and_check_ok("AT+QSSLCFG=\"seclevel\",1,0\r\n") != 0)
+    {
+        log_e("SSL config failed");
+        return -1;
+    }
+    
+    /* ========== 2. HTTP配置 ========== */
+    if (at_send_and_check_ok("AT+QHTTPCFG=\"contextid\",1\r\n") != 0 ||
+        at_send_and_check_ok("AT+QHTTPCFG=\"sslctxid\",1\r\n") != 0 ||
+        at_send_and_check_ok("AT+QHTTPCFG=\"requestheader\",1\r\n") != 0 ||
+        at_send_and_check_ok("AT+QHTTPCFG=\"responseheader\",1\r\n") != 0)
+    {
+        log_e("HTTP config failed");
+        return -1;
+    }
+    
+    /* ========== 3. 构造URL ========== */
+    char url[1024]; // 基础URL约120字节 + 编码消息（最多600字节）
+    int url_len = snprintf(url, sizeof(url),
+        BEMFA_BASE_URL "?uid=" BEMFA_UID "&device=" BEMFA_DEVICE "&message=%s",
+        message);
+    
+    if (url_len < 0 || url_len >= (int)sizeof(url))
+    {
+        log_e("URL construction failed or buffer too small");
+        return -1;
+    }
+    
+    /* ========== 4. 设置URL ========== */
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "AT+QHTTPURL=%d,30000\r\n", url_len);
+    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("QHTTPURL CONNECT not received");
+        return -1;
+    }
+    
+    /* 发送URL数据 */
+    hal_uart2_write(url);
+    hal_uart2_write("\r\n");
+    
+    /* 等待OK确认 */
+    ret = at_rsp_wait(NULL, buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "OK") == NULL)
+    {
+        log_e("URL data not accepted");
+        return -1;
+    }
+    
+    /* ========== 5. 构造HTTP请求头 ========== */
+    char http_request[1152]; // 基础头约150字节 + 编码消息（最多600字节）
+    int head_len = snprintf(http_request, sizeof(http_request),
+        "GET /vb/wechat/v1/wechatAlert?uid=" BEMFA_UID "&device=" BEMFA_DEVICE "&message=%s HTTP/1.1\r\n"
+        "Host: apis.bemfa.com\r\n"
+        "\r\n",
+        message);
+    
+    if (head_len < 0 || head_len >= (int)sizeof(http_request))
+    {
+        log_e("HTTP request construction failed or buffer too small");
+        return -1;
+    }
+    
+    /* ========== 6. 发起GET请求 ========== */
+    snprintf(cmd, sizeof(cmd), "AT+QHTTPGET=80,%d\r\n", head_len);
+    ret = at_send_and_wait_for(cmd, "CONNECT", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("QHTTPGET CONNECT not received");
+        return -1;
+    }
+    
+    /* 发送HTTP请求 */
+    hal_uart2_write(http_request);
+    
+    /* 等待数据接收确认（OK） */
+    ret = at_rsp_wait(NULL, buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK || strstr(buffer, "OK") == NULL)
+    {
+        log_e("HTTP request not acknowledged");
+        return -1;
+    }
+    
+    /* ========== 7. 等待HTTP响应结果 ========== */
+    ret = at_rsp_wait("+QHTTPGET:", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("HTTP response status not received");
+        return -1;
+    }
+    
+    /* 检查状态码是否为200 */
+    if (strstr(buffer, "+QHTTPGET: 0,200,") == NULL)
+    {
+        log_e("HTTP response status not 200: %s", buffer);
+        return -1;
+    }
+    
+    /* ========== 8. 读取响应数据 ========== */
+    hal_uart2_write("AT+QHTTPREAD=80\r\n");
+    ret = at_rsp_wait("+QHTTPREAD: 0", buffer, sizeof(buffer), AT_HTTP_TIMEOUT);
+    if (ret != AT_RSP_OK)
+    {
+        log_e("QHTTPREAD data read failed");
+        return -1;
+    }
+    
+    
+    /* 检查响应JSON中的code字段 */
+    if (strstr(buffer, "\"code\":0") == NULL)
+    {
+        log_e("Response code not 0");
+        return -1;
+    }
+    
+    log_i("Bemfa alert sent successfully");
     return 0;
 }

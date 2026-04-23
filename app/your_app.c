@@ -15,7 +15,6 @@
 #include "fatfs_service.h"
 extern void at_cmd_task_init(void);
 extern void ai_task_init(void);
-
 int main(void) {
   osal_task_delay(100);
   log_strategy();

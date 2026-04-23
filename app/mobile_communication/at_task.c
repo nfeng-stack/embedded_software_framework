@@ -224,9 +224,7 @@ void at_task(void *param)
     char address[256];
     double lon = 0, lat = 0;
     double out_lon = 0.0, out_lat = 0.0;
-
-    /* 目标手机号，请根据实际情况修改 */
-    const char *phone_number = CALL_NUM;
+ 
 
     while (1)
     {
@@ -238,15 +236,15 @@ void at_task(void *param)
             /* 构造短信内容：地址 + 经纬度 */
             char sms_content[512];
             int len = snprintf(sms_content, sizeof(sms_content),
-                               "Location: %s\nLon: %.6f, Lat: %.6f",
-                               address, out_lon, out_lat);
+                               "%s(%.2f,%.2f)",address,out_lon,out_lat);
+            log_e("%s",sms_content);
             if (len < 0 || (size_t)len >= sizeof(sms_content))
             {
                 log_e("SMS content too long");
             }
             else
             {
-                if (at_send_sms(sms_content, (char *)phone_number) != 0)
+                if (at_send_bemfa_alert(sms_content) != 0)
                 {
                     log_e("Send SMS failed");
                 }
