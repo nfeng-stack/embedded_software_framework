@@ -42,6 +42,9 @@ C_DEFS = \
 	-DSTM32H563xx \
 	-DHAL_PLATFORM_STM32H5=1
 
+# 取消下面这行注释以开启 AI Benchmark 模式
+C_DEFS += -DAI_BENCHMARK_MODE
+
 # C includes (basic - will be extended in main Makefile)
 C_INCLUDES = -Iframework/service/log_service/inc\
 			-Iinclude \

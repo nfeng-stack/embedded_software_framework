@@ -155,7 +155,7 @@ static int ai_boostrap(ai_handle *act_addr)
   return 0;
 }
 
-static int ai_run(void)
+int ai_run(void)
 {
   ai_i32 batch;
 
@@ -168,24 +168,44 @@ static int ai_run(void)
 
   return 0;
 }
+
+int ai_run_direct(const float *input_fdcnn, float *output_logits)
+{
+    memcpy(ai_input[0].data, input_fdcnn, AI_NETWORK_IN_1_SIZE_BYTES);
+    int ret = ai_run();
+    memcpy(output_logits, ai_output[0].data, AI_NETWORK_OUT_1_SIZE_BYTES);
+    return ret;
+}
+
 float net_data[200][6];
 
 /* USER CODE BEGIN 2 */
 int acquire_and_process_data(ai_i8* data[])
 {
-    /* 复制MPU6050采集的数据到AI输入缓冲区 */
-    log_e("AI: Copying MPU6050 data to AI input buffer (%d bytes)\n", AI_NETWORK_IN_1_SIZE_BYTES);
-    memcpy(data[0], net_data, AI_NETWORK_IN_1_SIZE_BYTES);
+    /* 将net_data[200][6](时间步交错)转换为FD-CNN传感器分组格式 */
+    float* input_buf = (float*)data[0];
+
+    /* 前600个：加速度值按时间顺序平铺 */
+    for (int t = 0; t < 200; t++) {
+        input_buf[t * 3 + 0] = net_data[t][0];  /* acc_x */
+        input_buf[t * 3 + 1] = net_data[t][1];  /* acc_y */
+        input_buf[t * 3 + 2] = net_data[t][2];  /* acc_z */
+    }
+
+    /* 后600个：陀螺仪值按时间顺序平铺 */
+    for (int t = 0; t < 200; t++) {
+        input_buf[600 + t * 3 + 0] = net_data[t][3];  /* gyro_x */
+        input_buf[600 + t * 3 + 1] = net_data[t][4];  /* gyro_y */
+        input_buf[600 + t * 3 + 2] = net_data[t][5];  /* gyro_z */
+    }
     return 0;
-    /* 没有新数据，跳过推理 */
 }
 
 int post_process(ai_i8* data[],uint8_t *is_fall)
 {
-  /* 处理跌倒检测结果 */
   float *logits = (float*)data[0];
   log_e("AI logits: [%f, %f]\n", logits[0], logits[1]);
-  
+
   /* Softmax将logits转换为概率 (数值稳定实现) */
   float max_val = (logits[0] > logits[1]) ? logits[0] : logits[1];
   float exp0 = expf(logits[0] - max_val);
@@ -193,30 +213,19 @@ int post_process(ai_i8* data[],uint8_t *is_fall)
   float sum = exp0 + exp1;
   float prob_no_fall = exp1 / sum;   /* 类别1: 非跌倒概率 */
   float prob_fall = exp0 / sum;      /* 类别0: 跌倒概率 */
-  log_e("nfeng220 fall_logits:%.2f,no_fall_logits:%.2f",logits[0],logits[1]);
-  log_e("Probabilities: NoFall=%.2f%%, Fall=%.2f%%\n", 
+
+  log_e("Probabilities: NoFall=%.2f%%, Fall=%.2f%%\n",
          prob_no_fall * 100.0f, prob_fall * 100.0f);
-  
-  /* 判断是否为跌倒 (基于概率阈值0.5) */
+
+  /* 基于概率阈值0.5判断 */
   if (prob_fall > 0.5f) {
-    if(logits[0] < 5)
-    {
-      log_e("pre fall,but logits:%.2f < 5,so pre unkown\n",logits[0]);
-      *is_fall = 0;
-      return 0;
-    }
     log_e("Fall detected! Confidence: %.2f%%\n", prob_fall * 100.0f);
     *is_fall = 1;
-    /* 可以触发警报 (例如点亮LED) */
-    // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
-    // HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
   } else {
     log_e("No fall detected. Confidence: %.2f%%\n", prob_no_fall * 100.0f);
     *is_fall = 0;
-    // HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
-    // HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
   }
-  return 0; /* 返回0表示成功处理并停止循环 */
+  return 0;
 }
 
 

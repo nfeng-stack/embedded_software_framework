@@ -3,5 +3,6 @@ obj-y += network_data_params.o
 obj-y += network_data.o
 obj-y += network.o
 obj-y += ai_task.o
+obj-y += ai_benchmark.o
 EXTRA_CFLAGS += -Iapp/aiNet/inc
 EXTRA_CFLAGS += -IAI/Inc

@@ -27,6 +27,7 @@ extern "C" {
 
 void MX_X_CUBE_AI_Init(void);
 uint8_t MX_X_CUBE_AI_Process(void);
+int ai_run_direct(const float *input_fdcnn, float *output_logits);
 /* USER CODE BEGIN includes */
 /* USER CODE END includes */
 #ifdef __cplusplus
