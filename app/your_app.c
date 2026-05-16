@@ -13,6 +13,7 @@
 #include "osal.h"
 #include "cdc_msc/usb_protocol.h"
 #include "fatfs_service.h"
+#include "w25qxx/inc/driver_w25qxx_advance.h"
 extern void at_cmd_task_init(void);
 extern void ai_task_init(void);
 int main(void) {

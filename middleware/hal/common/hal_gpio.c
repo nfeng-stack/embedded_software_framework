@@ -9,9 +9,9 @@ void hal_clean_it(void)
 }
 void hal_gpio_led_audio_on(void)
 {
-    platform_gpio_set_low_spec();
+    platform_gpio_set_hight_spec();
 }
 void hal_gpio_led_audio_off(void)
 {
-    platform_gpio_set_hight_spec();
+    platform_gpio_set_low_spec();
 }
