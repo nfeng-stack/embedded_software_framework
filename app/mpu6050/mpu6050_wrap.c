@@ -1,3 +1,5 @@
+#ifndef LIVE_TEST_MODE
+
 #define LOG_TAG "MPU6050"
 #define LOG_LVL ELOG_LVL_DEBUG // Enable DEBUG level for this module
 #define MPU6050_MOTION_THRESHOLD_MG 2000.0f
@@ -260,3 +262,5 @@ void mpu6050_init_task(void)
     
     return;
 }
+
+#endif /* LIVE_TEST_MODE */

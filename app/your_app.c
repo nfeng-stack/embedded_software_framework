@@ -17,9 +17,13 @@
 #ifdef AI_BENCHMARK_MODE
 #include "ai_benchmark.h"
 #include "app_x-cube-ai.h"
+#elif defined(LIVE_TEST_MODE)
+#include "ai_live_test.h"
 #endif
+#ifndef LIVE_TEST_MODE
 extern void at_cmd_task_init(void);
 extern void ai_task_init(void);
+#endif
 int main(void) {
   osal_task_delay(100);
   log_strategy();
@@ -29,6 +33,11 @@ int main(void) {
   usb_protocol_init();
   osal_task_delay(500);
   ai_benchmark_task_init();
+#elif defined(LIVE_TEST_MODE)
+  fatfs_init();
+  usb_protocol_init();
+  osal_task_delay(500);
+  live_test_init();
 #else
   at_cmd_task_init();
   ai_task_init();
