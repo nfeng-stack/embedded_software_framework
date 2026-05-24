@@ -2,73 +2,86 @@
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#0f3460','primaryTextColor': '#eaeaea','primaryBorderColor': '#16c79a','lineColor': '#16c79a','tertiaryColor': '#16213e','fontSize': '14px','fontFamily': 'system-ui'}}}%%
-flowchart TD
+flowchart TB
+  subgraph S1["阶段一：自由落体触发"]
+    direction LR
     START([系统运行中])
-    MONITOR["MPU6050 自由落体监测<br/>阈值 700mg / 1ms"]
-    FALL_CHECK{合加速度 &lt; 阈值<br/>触发硬件中断?}
-    WAKE["GPIO中断唤醒 MCU<br/>释放信号量 mpu_sem"]
-    SWITCH["切换为数据就绪中断<br/>采样率 200Hz"]
-    COLLECT["采集 200 组六轴数据<br/>加速度 xyz + 陀螺仪 xyz<br/>耗时约 1 秒"]
+    MPU[MPU6050 自由落体监测<br/>阈值 700mg，持续 1ms]
+    FF{合加速度<br/>低于阈值?}
+  end
 
-    STORE["原始数据写入 Flash<br/>FATFS → W25Qxx NOR Flash<br/>文件: /data/mpu6050_data.txt"]
-    QUANT["量化归一化<br/>加速度 ±16g → 0~255<br/>陀螺仪 ±2000°/s → 0~255"]
+  subgraph S2["阶段二：数据采集与量化"]
+    direction RL
+    STORE[写入 W25Qxx Flash<br/>FATFS 文件系统]
+    QUANT[量化归一化<br/>±16g / ±2000°/s → 0~255]
+    COLLECT[采集 200 组六轴数据<br/>加速度 xyz + 陀螺仪 xyz<br/>DATA_READY 中断循环驱动]
+  end
 
-    INFER["CNN 前向推理<br/>Conv3→32→64 + MaxPool<br/>FC 1600→512→2 + Softmax<br/>Cortex-M33 FPU 推理 ~50ms"]
-    AI_CHECK{Softmax &gt; 0.5<br/>且 logit ≥ 5?}
+  subgraph S3["阶段三：AI 推理与报警"]
+    direction LR
+    INFER[CNN 前向推理<br/>Conv3→32→64 + MaxPool<br/>FC 1600→512→2 + Softmax<br/>Cortex-M33 + FPU]
+    AI{Softmax 概率<br/>> 0.5?}
+    ALARM[声光报警启动<br/>PA5 HIGH: LED + 蜂鸣器<br/>释放信号量 at_sem]
+  end
 
-    ALARM["声光报警<br/>LED 高频闪烁<br/>蜂鸣器持续鸣响"]
-    WAIT30["启动 30 秒倒计时<br/>等待用户按键取消误报"]
-    CANCEL{用户按键取消?}
-    RESET["关闭声光报警<br/>恢复自由落体监测"]
+  subgraph S4["阶段四：30 秒误报取消"]
+    direction RL
+    GPS_START[进入推送流程]
+    CANCEL{is_send_msg<br/>== 1?}
+    WAIT30[等待 30 秒<br/>osal_task_delay 30000ms]
+  end
 
-    GPS["AT 指令获取 GPS 定位<br/>AT+QGPSGNMEA='RMC'"]
-    NMEA["NMEA 协议解析<br/>ddmm.mmmm → 十进制度<br/>校验 GPS 定位有效性"]
-    GEOCODE["HTTPS GET 高德逆地理编码<br/>restapi.amap.com/v3/geocode"]
-    JSON["cJSON 解析返回结果<br/>提取 formatted_address"]
-    BUILD["组装报警消息<br/>地址 + 坐标 + 时间戳"]
-    PUSH["HTTPS GET 巴法云 API<br/>微信消息推送"]
+  subgraph S5["阶段五：定位与微信推送"]
+    direction LR
+    GPS[AT 指令获取定位<br/>AT+QGPSGNMEA='RMC'<br/>NMEA 协议解析]
+    GEOCODE[HTTPS GET 高德逆地理编码<br/>restapi.amap.com/v3/geocode<br/>cJSON 提取 formatted_address]
+    BUILD[组装报警消息<br/>地址 + 经纬度 + 时间戳]
+    PUSH[HTTPS GET 巴法云 API<br/>微信消息推送<br/>apis.bemfa.com]
     END_NODE([监护人微信收到报警])
+  end
 
-    START --> MONITOR
-    MONITOR --> FALL_CHECK
-    FALL_CHECK -->|否| MONITOR
-    FALL_CHECK -->|是| WAKE
-    WAKE --> SWITCH
-    SWITCH --> COLLECT
-    COLLECT --> STORE
-    COLLECT --> QUANT
-    STORE --> INFER
-    QUANT --> INFER
-    INFER --> AI_CHECK
-    AI_CHECK -->|否| MONITOR
-    AI_CHECK -->|是| ALARM
-    ALARM --> WAIT30
-    WAIT30 --> CANCEL
-    CANCEL -->|是| RESET
-    RESET --> MONITOR
-    CANCEL -->|否, 超时| GPS
-    GPS --> NMEA
-    NMEA --> GEOCODE
-    GEOCODE --> JSON
-    JSON --> BUILD
-    BUILD --> PUSH
-    PUSH --> END_NODE
+  BUTTON_ISR[按钮中断 PB3<br/>EXTI3_IRQHandler<br/>is_send_msg = 0<br/>关灯灭蜂鸣]:::annotation
 
-    classDef startStyle fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#eaeaea
-    classDef processStyle fill:#16213e,stroke:#16c79a,stroke-width:2px,color:#eaeaea
-    classDef decisionStyle fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eaeaea
-    classDef alarmStyle fill:#e94560,stroke:#e94560,stroke-width:3px,color:#fff,font-weight:bold
-    classDef storeStyle fill:#533483,stroke:#16c79a,stroke-width:2px,color:#eaeaea
-    classDef endStyle fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#16c79a
+  %% ---------- 主流程边 ----------
+  START --> MPU
+  MPU --> FF
+  FF -->|否| MPU
+  FF -->|是, 触发 EXTI15| COLLECT
+  COLLECT --> QUANT
+  COLLECT --> STORE
+  STORE --> INFER
+  QUANT --> INFER
+  INFER --> AI
+  AI -->|否| MPU
+  AI -->|是| ALARM
+  ALARM --> WAIT30
+  WAIT30 --> CANCEL
+  CANCEL -->|是, 已取消| MPU
+  CANCEL -->|否, 超时| GPS_START
+  GPS_START --> GPS
+  GPS --> GEOCODE
+  GEOCODE --> BUILD
+  BUILD --> PUSH
+  PUSH --> END_NODE
 
-    class START endStyle
-    class MONITOR,WAKE,SWITCH,COLLECT,QUANT processStyle
-    class INFER,GPS,NMEA,GEOCODE,JSON,BUILD,PUSH processStyle
-    class FALL_CHECK,AI_CHECK,CANCEL decisionStyle
-    class ALARM alarmStyle
-    class STORE storeStyle
-    class RESET processStyle
-    class END_NODE endStyle
+  %% ---------- 侧边注释：异步中断 ----------
+  BUTTON_ISR -.-> CANCEL
+
+  %% ---------- 样式定义 ----------
+  classDef startStyle fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#eaeaea
+  classDef processStyle fill:#16213e,stroke:#16c79a,stroke-width:2px,color:#eaeaea
+  classDef decisionStyle fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eaeaea
+  classDef alarmStyle fill:#e94560,stroke:#e94560,stroke-width:3px,color:#fff
+  classDef storeStyle fill:#533483,stroke:#16c79a,stroke-width:2px,color:#eaeaea
+  classDef endStyle fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#16c79a
+  classDef annotation fill:#2d3436,stroke:#636e72,stroke-width:1px,stroke-dasharray:4 4,color:#b2bec3,font-size:12px
+
+  class START,END_NODE endStyle
+  class MPU,COLLECT,QUANT,INFER,GPS,GEOCODE,BUILD,PUSH,GPS_START processStyle
+  class FF,AI,CANCEL decisionStyle
+  class ALARM alarmStyle
+  class STORE storeStyle
+  class BUTTON_ISR annotation
 ```
 
 ## 图片生成方式
@@ -76,7 +89,7 @@ flowchart TD
 ### 方案 A：在线编辑器（推荐，无需安装）
 
 1. 打开浏览器访问 **[Mermaid Live Editor](https://mermaid.live)**
-2. 将上方 `flowchart TD ...` 代码块内的内容完整粘贴到编辑器左侧输入区（不含 3 个反引号的行）
+2. 将上方 `flowchart TB ...` 代码块内的内容完整粘贴到编辑器左侧输入区（不含 3 个反引号的行）
 3. 右侧将实时预览流程图效果
 4. 点击顶部工具栏 **"Actions"** → 选择 **"Export as PNG"** 或 **"Export as SVG"**
 5. 调整导出分辨率建议：**宽度 2400px**，**缩放 2x**（保证论文 300dpi 印刷效果）
@@ -114,12 +127,10 @@ mmdc -i fall_detection_flowchart.md -o fall_detection_flowchart.svg -w 2400
 
 ## 流程图节点说明
 
-| 阶段 | 节点 | 说明 |
-|------|------|------|
-| **阶段一：自由落体触发** | MPU6050 监测 → 硬件中断 | MPU6050 内部 DSP 实时计算合加速度，低于 700mg 持续 1ms 时触发 INT 引脚。中断信号无需软件参与，响应延迟 <1μs |
-| **阶段二：数据采集与持久化** | 200 组 6 轴采集 → Flash 写入 + 量化归一化 | 切换为数据就绪中断，以 200Hz 采集 1 秒共 200 组数据。两条并行路径：原始数据写入 W25Qxx NOR Flash 供事后分析，量化数据拷贝至 `net_data[200][6]` 供 AI 输入 |
-| **阶段三：AI 推理判决** | CNN 推理 → 双重阈值判定 | 量化数据送入五层 CNN（Conv→Pool→FC→Softmax），双重阈值策略判决：Softmax 概率 > 0.5 且 logit ≥ 5 方确认跌倒，否则返回监测 |
-| **阶段四：声光报警** | LED + 蜂鸣器 | 确认跌倒后立即激活板载 LED 高频闪烁和蜂鸣器持续鸣响，提示事故现场周边人员 |
-| **阶段五：误报取消** | 30 秒倒计时 | 给予用户 30 秒按键取消窗口。已取消则关闭警报、复位状态；超时未取消则进入紧急推送流程 |
-| **阶段六：定位与地址解析** | GPS → NMEA → 高德 API → cJSON | AT 指令获取 RMC 定位语句 → 手写 NMEA 解析器提取经纬度 → HTTPS GET 调用高德逆地理编码 API → cJSON 解析街道级地址 |
-| **阶段七：消息推送** | 巴法云 → 微信 | 组装地址+坐标+时间戳信息 → HTTPS GET 巴法云 IoT 平台 → 推送至监护人微信客户端 |
+| 阶段 | 节点 | 说明 | 对应源代码 |
+|------|------|------|-----------|
+| **阶段一：自由落体触发** | MPU6050 监测 → 硬件中断 | MPU6050 内部 DSP 实时计算合加速度，低于 700mg 持续 1ms 时 INT 引脚输出低电平，触发 STM32 EXTI15 中断。`exit_callback` 在 ISR 上下文释放 `mpu_sem` 唤醒 MPU 线程 | `mpu6050_wrap.c:126` INT_STATUS bit7 判定 |
+| **阶段二：数据采集与量化** | 200 组 6 轴采集 → Flash 写入 + 量化归一化 | MPU 线程检测 FREE_FALL 位后，关闭 FREE 中断、使能 DATA_READY 中断。每收到一次 EXTI15 中断读取 1 组六轴数据，循环 200 次。满后关闭中断、写入 Flash、量化数据至 `net_data[200][6]`，最后释放 `ai_sem` 唤醒 AI 线程 | `mpu6050_wrap.c:135-158`（采集循环 + 满缓冲处理） |
+| **阶段三：AI 推理与报警** | CNN 推理 → Softmax 判定 | AI 线程从 `ai_sem` 唤醒后，调用 FD-CNN 网络前向推理。`post_process` 计算 Softmax 概率，`prob_fall > 0.5` 即判定跌倒。若跌倒：`is_send_msg=1`，PA5 输出 HIGH 开启 LED+蜂鸣器，释放 `at_sem` 唤醒 AT 线程 | `ai_task.c:22-29`（判决 + 报警）；`app_x-cube-ai.c:221`（prob_fall 阈值） |
+| **阶段四：30 秒误报取消** | 30 秒延迟 → 按键作废检查 | AT 线程从 `at_sem` 唤醒后立即执行 `osal_task_delay(30000)` 等待 30 秒。期间若用户按下 PB3 按钮，`EXTI3_IRQHandler` 异步执行 `is_send_msg=0` 并关闭 LED/蜂鸣器。30 秒后检查 `is_send_msg`：0 表示已取消，复位标志并回到等待状态；1 表示超时未取消，进入推送流程 | `at_task.c:233-234`（延迟 + 检查）；`platform_gpio_driver.c:119`（EXTI3 ISR） |
+| **阶段五：定位与微信推送** | AT GPS → 高德逆地理编码 → 巴法云推送 | `at_get_location()` 发送 AT+QGPSGNMEA='RMC' 并手写 NMEA 解析器提取十进制度经纬度。`query_geocode()` 通过 HTTPS GET 调用高德逆地理编码 API（`restapi.amap.com`），cJSON 解析返回的 `formatted_address`。组装"地址+经纬度+时间戳"消息后，通过 HTTPS GET 巴法云 API 推送到监护人微信 | `at_command.c:727`（GPS+NMEA）；`at_task.c:157`（地理编码）；`at_command.c:1115`（巴法云推送） |

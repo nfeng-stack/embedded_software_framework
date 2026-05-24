@@ -46,7 +46,7 @@ C_DEFS = \
 # C_DEFS += -DAI_BENCHMARK_MODE
 
 # 取消下面这行注释以开启 Live Test 模式 (纯传感器采集, PC端推理)
-C_DEFS += -DLIVE_TEST_MODE
+# C_DEFS += -DLIVE_TEST_MODE
 
 # C includes (basic - will be extended in main Makefile)
 C_INCLUDES = -Iframework/service/log_service/inc\
