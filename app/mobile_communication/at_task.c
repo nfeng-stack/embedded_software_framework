@@ -48,6 +48,46 @@ static double my_atof(const char *s)
     return sign * val;
 }
 
+#define UTF8_CHUNK_SIZE 10
+
+static int push_chunked(const char *str)
+{
+    if (!str || *str == '\0')
+        return -1;
+
+    const char *p = str;
+    int char_cnt = 0;
+    const char *chunk_start = str;
+
+    while (*p) {
+        if ((*p & 0xC0) != 0x80) {
+            if (char_cnt == UTF8_CHUNK_SIZE) {
+                size_t chunk_len = p - chunk_start;
+                char msg[31];
+                memcpy(msg, chunk_start, chunk_len);
+                msg[chunk_len] = '\0';
+                if (at_send_bemfa_alert(msg) != 0)
+                    log_e("Chunk push failed");
+                chunk_start = p;
+                char_cnt = 0;
+            }
+            char_cnt++;
+        }
+        p++;
+    }
+
+    if (chunk_start < p) {
+        size_t chunk_len = p - chunk_start;
+        char msg[31];
+        memcpy(msg, chunk_start, chunk_len);
+        msg[chunk_len] = '\0';
+        if (at_send_bemfa_alert(msg) != 0)
+            log_e("Chunk push failed");
+    }
+
+    return 0;
+}
+
 /**
  * @brief 构建带经纬度的完整请求 URL
  */
@@ -222,6 +262,9 @@ void at_task(void *param)
         return;
     }
 
+    // at_send_bemfa_alert("江西省南昌市红谷滩区");
+    // at_send_bemfa_alert("沙井街道南昌航空大学");
+
     char address[256];
     double lon = 0, lat = 0;
     double out_lon = 0.0, out_lat = 0.0;
@@ -239,30 +282,17 @@ void at_task(void *param)
         if (at_get_location(&lon, &lat) == 0 && 
             query_geocode(lon, lat, address, sizeof(address), &out_lon, &out_lat) == 0)
         {
-            /* 构造短信内容：地址 + 经纬度 */
-            char sms_content[512];
-            int len = snprintf(sms_content, sizeof(sms_content),
-                               "%s(%.2f,%.2f)",address,out_lon,out_lat);
-            log_e("%s",sms_content);
-            if (len < 0 || (size_t)len >= sizeof(sms_content))
-            {
-                log_e("SMS content too long");
-            }
-            else
-            {
-                if (at_send_bemfa_alert(sms_content) != 0)
-                {
-                    log_e("Send SMS failed");
-                }
-                else
-                {
-                    log_i("SMS sent: %s", sms_content);
-                }
-            }
+            push_chunked(address);
+            char coord[16];
+            snprintf(coord, sizeof(coord), "L:%.2f", out_lon);
+            at_send_bemfa_alert(coord);
+            snprintf(coord, sizeof(coord), "N:%.2f", out_lat);
+            at_send_bemfa_alert(coord);
         }
         else
         {
             log_e("Failed to get location");
+            at_send_bemfa_alert("老人在家跌倒");
         }
     }
         osal_task_delay(1000);
