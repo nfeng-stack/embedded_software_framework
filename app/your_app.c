@@ -38,6 +38,12 @@ int main(void) {
   usb_protocol_init();
   osal_task_delay(500);
   live_test_init();
+#elif defined(REALTIME_DETECT_MODE)
+  at_cmd_task_init();
+  ai_task_init();
+  fatfs_init();
+  mpu6050_init_task();
+  usb_protocol_init();
 #else
   at_cmd_task_init();
   ai_task_init();

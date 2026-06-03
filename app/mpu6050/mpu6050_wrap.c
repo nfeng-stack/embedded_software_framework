@@ -14,6 +14,12 @@
 #define MPU6050_MOTION_DURATION 1
 #define MPU6050_FREE_DURATION 1
 
+#ifdef REALTIME_DETECT_MODE
+#define RING_SIZE    512
+#define WINDOW_SIZE  200
+#define STRIDE       100
+#endif
+
 #include "driver_mpu6050.h"
 #include "driver_mpu6050_basic.h"
 #include "mpu6050_data_logger.h"
@@ -36,6 +42,11 @@ static mpu6050_handle_t *mpu_handle = NULL;
 osal_task_t mpu_task_t = NULL;
 osal_semaphore_t mpu_sem = NULL;
 float raw_data[200][6] = {0};
+
+#ifdef REALTIME_DETECT_MODE
+static float raw_ring[RING_SIZE][6];
+volatile uint8_t g_realtime_pause = 0;
+#endif
 
 void exit_callback(void)
 {
@@ -80,6 +91,68 @@ extern void ai_sem_relase(void);
 void mpu6050_task(void *param)
 {
 
+#ifdef REALTIME_DETECT_MODE
+    uint32_t write_idx = 0;
+    uint32_t total = 0;
+    uint32_t last_infer = 0;
+    uint8_t res = 0;
+
+    mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_TRUE);
+    log_i("%s Sliding window detection (1s window, 500ms stride)\n", LOG_MODE);
+
+    while (1)
+    {
+        osal_sem_take(mpu_sem, -1);
+        if (g_realtime_pause) goto handle_pause;
+
+        res = mpu6050_basic_read(raw_ring[write_idx], raw_ring[write_idx] + 3);
+        if (res != 0)
+        {
+            log_e("mpu6050 get data failed\n");
+            mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_FALSE);
+            return;
+        }
+        write_idx = (write_idx + 1) & (RING_SIZE - 1);
+        total++;
+
+        if (total >= WINDOW_SIZE && (total - last_infer) >= STRIDE)
+        {
+            for (int j = 0; j < WINDOW_SIZE; j++)
+            {
+                int src = (write_idx - WINDOW_SIZE + j) & (RING_SIZE - 1);
+                raw_data[j][0] = raw_ring[src][0];
+                raw_data[j][1] = raw_ring[src][1];
+                raw_data[j][2] = raw_ring[src][2];
+                raw_data[j][3] = raw_ring[src][3];
+                raw_data[j][4] = raw_ring[src][4];
+                raw_data[j][5] = raw_ring[src][5];
+            }
+            quantize_data(raw_data, net_data, WINDOW_SIZE);
+            /**< 释放ai推理线程让其输出推理结果 */
+            ai_sem_relase();
+            last_infer = total;
+        }
+        continue;
+
+handle_pause:
+        {
+            log_i("%s Fall detected - pausing continuous detection\n", LOG_DATA);
+            mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_FALSE);
+            hal_clean_it();
+            while (g_realtime_pause)
+            {
+                osal_task_delay(500);
+            }
+            write_idx = 0;
+            total = 0;
+            last_infer = 0;
+            while (osal_sem_take(mpu_sem, 0) == 0);
+            log_i("%s Alert handled - resuming continuous detection\n", LOG_DATA);
+            mpu6050_set_interrupt(mpu_handle, MPU6050_INTERRUPT_DATA_READY, MPU6050_BOOL_TRUE);
+            continue;
+        }
+    }
+#else
     static uint8_t i = 0;
     uint8_t reg = 0;
     uint8_t res = 0;
@@ -160,6 +233,7 @@ void mpu6050_task(void *param)
             }
         }
     }
+#endif
 }
 
 void mpu6050_init_task(void)
@@ -205,6 +279,7 @@ void mpu6050_init_task(void)
     }
     mpu6050_set_interrupt_read_clear(mpu_handle, MPU6050_BOOL_TRUE);
     // mpu6050_motion_detect_init();
+#ifndef REALTIME_DETECT_MODE
     float threshold_mg = MPU6050_FREE_THRESHOLD_MG;
     uint8_t reg;
     res = mpu6050_free_threshold_convert_to_register(mpu_handle, threshold_mg, &reg);
@@ -247,8 +322,9 @@ void mpu6050_init_task(void)
         return;
     }
     log_e("free duration %d\n", reg);
+#endif
     hal_gpio_init_int(); /* 配置硬件中断使能 */
-    mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 10, 10, 20);
+    mpu_task_t = osal_task_create("mputhread", mpu6050_task, NULL, 1024 * 10, 5, 20);
     mpu_sem = osal_sem_create("mpu_sem", 0, 0);
     if (mpu_task_t == NULL || mpu_sem == NULL)
     {
@@ -258,7 +334,9 @@ void mpu6050_init_task(void)
     osal_task_startup(mpu_task_t);
     
     /* Initialize data logger */
+#ifndef REALTIME_DETECT_MODE
     mpu6050_data_logger_init();
+#endif
     
     return;
 }

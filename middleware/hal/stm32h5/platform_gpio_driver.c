@@ -115,11 +115,15 @@ void EXTI2_IRQHandler(void)
 
 #else
 
-extern uint8_t is_send_msg;
+extern volatile uint8_t is_send_msg;
 void EXTI3_IRQHandler(void)
 {
   platform_gpio_set_low_spec();
   is_send_msg = 0;
+#ifdef REALTIME_DETECT_MODE
+  extern volatile uint8_t g_realtime_pause;
+  g_realtime_pause = 0;
+#endif
   while(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) != GPIO_PIN_SET);
   __HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_3);
   HAL_NVIC_ClearPendingIRQ(EXTI3_IRQn);

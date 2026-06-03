@@ -48,6 +48,9 @@ C_DEFS = \
 # 取消下面这行注释以开启 Live Test 模式 (纯传感器采集, PC端推理)
 # C_DEFS += -DLIVE_TEST_MODE
 
+# 取消下面这行注释以开启实时检测模式 (连续采集 + 每1秒AI推理，跌倒后停止)
+C_DEFS += -DREALTIME_DETECT_MODE
+
 # C includes (basic - will be extended in main Makefile)
 C_INCLUDES = -Iframework/service/log_service/inc\
 			-Iinclude \

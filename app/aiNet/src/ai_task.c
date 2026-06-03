@@ -3,11 +3,14 @@
 #include "osal.h"
 #include "elog.h"
 #include "hal.h"
+#ifdef REALTIME_DETECT_MODE
+#include "../../mpu6050/mpu6050_wrap.h"
+#endif
 extern void at_sem_relase(void);
 
 osal_task_t ai_task_t = NULL;
 osal_semaphore_t ai_sem = NULL;
-extern uint8_t is_send_msg;
+extern volatile uint8_t is_send_msg;
 void ai_sem_relase(void)
 {
     osal_sem_release(ai_sem);
@@ -27,7 +30,9 @@ void ai_task(void *param)
             is_send_msg = 1;
             hal_gpio_led_audio_on();
             at_sem_relase();
-
+#ifdef REALTIME_DETECT_MODE
+            g_realtime_pause = 1;
+#endif
         }
         // at_sem_relase();
         // hal_gpio_led_audio_on();

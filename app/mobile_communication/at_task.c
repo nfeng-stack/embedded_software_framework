@@ -9,6 +9,9 @@
 #include "at_command.h"
 #include "cjson_porting.h"
 #include "cJSON.h"
+#ifdef REALTIME_DETECT_MODE
+#include "../mpu6050/mpu6050_wrap.h"
+#endif
 
 #ifndef strtok_r
 #define strtok_r(str, delim, saveptr) strtok(str, delim)
@@ -244,7 +247,7 @@ void at_sem_relase(void)
 {
     osal_sem_release(at_sem);
 }
-uint8_t is_send_msg = 1;
+volatile uint8_t is_send_msg = 1;
 /**
  * @brief AT 命令处理任务（示例）
  */
@@ -294,7 +297,13 @@ void at_task(void *param)
             log_e("Failed to get location");
             at_send_bemfa_alert("老人在家跌倒");
         }
+#ifdef REALTIME_DETECT_MODE
+        hal_gpio_led_audio_off();
+#endif
     }
+#ifdef REALTIME_DETECT_MODE
+        g_realtime_pause = 0;
+#endif
         osal_task_delay(1000);
     }
 }
